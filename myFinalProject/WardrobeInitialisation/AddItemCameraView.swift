@@ -7,6 +7,14 @@
 //
 //
 //
+//
+//  AddItemCameraView.swift
+//  myFinalProject
+//
+//  Created by Derya Baglan on 31/07/2025.
+//
+
+
 import SwiftUI
 import PhotosUI
 import UIKit
@@ -30,6 +38,7 @@ struct AddItemCameraView: View {
     @State private var previewImage: PreviewImage?
 
     @StateObject private var taggingVM = ImageTaggingViewModel()
+    @StateObject private var removeBg = RemoveBgClient()
 
     private let gridColumns = Array(
         repeating: GridItem(.flexible(), spacing: 8),
@@ -40,6 +49,12 @@ struct AddItemCameraView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            Text("Add items")
+              .font(AppFont.spicyRice(size: 28))
+              .padding(.top)
+              .padding(.bottom)
+              .frame(maxWidth: .infinity)
+            
             // 1) Tab selector
             Picker("", selection: $selectedTab) {
                 Text("Camera Roll").tag(Tab.library)
@@ -74,7 +89,6 @@ struct AddItemCameraView: View {
                 originalImage: item.ui,
                 taggingVM: taggingVM,
                 onSave: {
-                    // dismiss
                     previewImage = nil
                 },
                 onDelete: {
@@ -108,9 +122,7 @@ struct AddItemCameraView: View {
                     CameraImagePicker { image in
                         showingCamera = false
                         guard let img = image else { return }
-                        photos.append(img)
-                        previewImage = PreviewImage(ui: img)
-                        taggingVM.autoTag(image: img)
+                        processPickedImage(img)
                     }
                 }
 
@@ -135,9 +147,7 @@ struct AddItemCameraView: View {
                             if case let .success(data?) = result,
                                let ui = UIImage(data: data) {
                                 DispatchQueue.main.async {
-                                    photos.append(ui)
-                                    previewImage = PreviewImage(ui: ui)
-                                    taggingVM.autoTag(image: ui)
+                                    processPickedImage(ui)
                                 }
                             }
                         }
@@ -158,6 +168,28 @@ struct AddItemCameraView: View {
             .padding(8)
         }
     }
+
+    // MARK: — Helpers
+
+    private func processPickedImage(_ img: UIImage) {
+        // 1) strip background
+        removeBg.removeBackground(from: img) { result in
+            DispatchQueue.main.async {
+                let finalImage: UIImage
+                switch result {
+                case .success(let cutout):
+                    finalImage = cutout
+                case .failure:
+                    finalImage = img
+                }
+
+                // 2) show & tag
+                photos.append(finalImage)
+                previewImage = PreviewImage(ui: finalImage)
+                taggingVM.autoTag(image: finalImage)
+            }
+        }
+    }
 }
 
 // MARK: — CameraImagePicker
@@ -169,7 +201,7 @@ struct CameraImagePicker: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.sourceType = .camera
-        picker.delegate   = context.coordinator
+        picker.delegate = context.coordinator
         return picker
     }
 
@@ -198,5 +230,33 @@ struct CameraImagePicker: UIViewControllerRepresentable {
 }
 
 
+// … all of your AddItemCameraView code above …
+
+// MARK: — Previews
+
+#if DEBUG
+struct AddItemCameraView_Previews: PreviewProvider {
+    static var previews: some View {
+        Group {
+            // Library tab preview
+            AddItemCameraView()
+                .previewDisplayName("Library")
+            // Web tab preview
+            AddItemCameraView()
+                .onAppear {
+                    // force the preview into the Web tab
+                    // Note: this only works in SwiftUI previews
+                    // because @State is mutated before body
+                    DispatchQueue.main.async {
+                        // hack: set the selectedTab to .web
+                        Mirror(reflecting: AddItemCameraView().self)
+                    }
+                }
+                .previewDisplayName("Web")
+        }
+        .previewDevice("iPhone 16 Pro")
+    }
+}
+#endif
 
 

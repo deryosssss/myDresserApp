@@ -43,5 +43,7 @@
 	<true/>
 	<key>FacebookAdvertiserIDCollectionEnabled</key>
 	<true/>
+	<key>RemoveBgAPIKey</key>
+	<string>5Rp8BHFLmyYPrzi8F8TcvuhG</string>
 </dict>
 </plist>

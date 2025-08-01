@@ -6,196 +6,167 @@
 //
 //
 
-
-
 import SwiftUI
 import UIKit
 
 struct TaggedItemPreviewView: View {
   // MARK: — Inputs
-
-  /// The full original image the user picked or shot
   let originalImage: UIImage
-
-  /// Your VM that publishes `detectedItems` & `deepTags`
   @ObservedObject var taggingVM: ImageTaggingViewModel
-
-  /// Called when “Save” is tapped
   var onSave: () -> Void
-
-  /// Called when “Delete” is tapped
   var onDelete: () -> Void
 
-  // MARK: — State
+  // MARK: — Layout Helpers
 
-  /// The image we actually display (cropped once detection arrives)
-  @State private var displayImage: UIImage
+  private func detailRow(
+    _ title: String,
+    value: String,
+    editAction: @escaping () -> Void
+  ) -> some View {
+    HStack {
+      Text(title).bold()
+      Spacer()
+      Text(value.isEmpty ? "—" : value)
+        .foregroundColor(.secondary)
+      tinyEditButton(action: editAction)
+    }
+    .padding()
+    .background(Color(white: 0.95))
+    .cornerRadius(8)
+    .padding(.horizontal)
+  }
 
-  // MARK: — Layout
+  private func chipSection(
+    _ title: String,
+    chips: [String],
+    editAction: @escaping () -> Void
+  ) -> some View {
+    VStack(alignment: .leading, spacing: 6) {
+      Text(title).bold()
+      ScrollView(.horizontal, showsIndicators: false) {
+        HStack(spacing: 6) {
+          ForEach(chips, id: \.self) { c in
+            Text(c.capitalized)
+              .font(.caption)
+              .padding(.vertical, 6)
+              .padding(.horizontal, 12)
+              .background(Color.brandYellow)
+              .cornerRadius(12)
+          }
+          tinyEditButton(action: editAction)
+        }
+      }
+    }
+    .padding()
+    .background(Color(white: 0.95))
+    .cornerRadius(8)
+    .padding(.horizontal)
+  }
 
-  /// adaptive grid for tag chips
-  private let chipColumns = [ GridItem(.adaptive(minimum: 80), spacing: 8) ]
-
-  // MARK: — Init
-
-  init(
-    originalImage: UIImage,
-    taggingVM: ImageTaggingViewModel,
-    onSave: @escaping () -> Void,
-    onDelete: @escaping () -> Void
-  ) {
-    self.originalImage = originalImage
-    self._displayImage = State(initialValue: originalImage)
-    self.taggingVM = taggingVM
-    self.onSave = onSave
-    self.onDelete = onDelete
+  private func tinyEditButton(action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+      Text("✎")
+        .font(.caption2)
+        .foregroundColor(.blue)
+        .padding(6)
+    }
+    .background(Color.white)
+    .cornerRadius(6)
+    .overlay(
+      RoundedRectangle(cornerRadius: 6)
+        .stroke(Color.blue, lineWidth: 1)
+    )
   }
 
   // MARK: — Body
 
   var body: some View {
-    VStack(spacing: 16) {
-      // — Loading / Error
-      if taggingVM.isLoading {
-        ProgressView("Tagging…")
-          .frame(maxWidth: .infinity)
-          .padding()
-      }
-      if let error = taggingVM.errorMessage {
-        Text(error)
-          .foregroundColor(.red)
-          .multilineTextAlignment(.center)
-          .padding(.horizontal)
-      }
-
-      // — Image + overlay buttons
-      ZStack(alignment: .topTrailing) {
-        Image(uiImage: displayImage)
-          .resizable()
-          .scaledToFit()
-          .frame(maxWidth: .infinity)
-          .background(Color(white: 0.95))
-          .cornerRadius(8)
-
-        HStack(spacing: 12) {
-          Button(action: onDelete) {
-            Image(systemName: "trash.circle.fill")
-              .font(.system(size: 28))
-              .foregroundColor(.red)
-              .background(Color.white)
-              .clipShape(Circle())
-          }
-          Button(action: {}) {
-            Image(systemName: "ellipsis.circle.fill")
-              .font(.system(size: 28))
-              .foregroundColor(.primary)
-              .background(Color.white)
-              .clipShape(Circle())
-          }
-        }
-        .padding(12)
-      }
-      .padding(.horizontal)
-
-      // — Tag lists
+    VStack(spacing: 12) {
+      // — Title
+      Text("Review & Save")
+        .font(AppFont.spicyRice(size: 28))
+        .padding(.top)
+        .frame(maxWidth: .infinity)
+      
+      // — Image box
+      Image(uiImage: originalImage)
+        .resizable()
+        .scaledToFit()
+        .frame(height: 300)
+        .frame(maxWidth: .infinity)
+        .background(Color(white: 0.93))
+        .cornerRadius(12)
+        .padding(.horizontal)
+      
+      // — Fields list
       ScrollView {
-        VStack(alignment: .leading, spacing: 20) {
-          if !taggingVM.detectedItems.isEmpty {
-            Text("Items Detected")
-              .font(.headline)
-              .padding(.horizontal)
+        VStack(spacing: 12) {
+          detailRow("Category",     value: taggingVM.category)    { /* edit */ }
+          detailRow("Sub Category", value: taggingVM.subcategory) { /* edit */ }
 
-            LazyVGrid(columns: chipColumns, spacing: 8) {
-              ForEach(taggingVM.detectedItems, id: \.name) { item in
-                Text(item.name.capitalized)
-                  .padding(.horizontal, 8)
-                  .padding(.vertical, 4)
-                  .background(Color.blue.opacity(0.2))
-                  .cornerRadius(8)
-              }
-            }
-            .padding(.horizontal)
-          }
+          chipSection("Colours",    chips: taggingVM.colours)      { /* edit colours */ }
+          chipSection("Tags",       chips: taggingVM.tags)         { /* edit tags    */ }
 
-          if let colors = taggingVM.deepTags?.colors, !colors.isEmpty {
-            Text("Colors")
-              .font(.headline)
-              .padding(.horizontal)
+          detailRow("Length",     value: taggingVM.length)        { /* edit */ }
+          detailRow("Style",      value: taggingVM.style)         { /* edit */ }
+          detailRow("Design / Pattern",
+                    value: taggingVM.designPattern)             { /* edit */ }
+          detailRow("Closure",    value: taggingVM.closureType)   { /* edit */ }
+          detailRow("Fit",        value: taggingVM.fit)           { /* edit */ }
+          detailRow("Material",   value: taggingVM.material)      { /* edit */ }
+          detailRow("Fastening",  value: taggingVM.fastening)     { /* edit */ }
+          detailRow("Dress Code", value: taggingVM.dressCode)     { /* edit */ }
+          detailRow("Season",     value: taggingVM.season)        { /* edit */ }
+          detailRow("Size",       value: taggingVM.size)          { /* edit */ }
 
-            LazyVGrid(columns: chipColumns, spacing: 8) {
-              ForEach(colors, id: \.name) { c in
-                Text(c.name.capitalized)
-                  .padding(.horizontal, 8)
-                  .padding(.vertical, 4)
-                  .background(Color.yellow.opacity(0.2))
-                  .cornerRadius(8)
-              }
-            }
-            .padding(.horizontal)
-          }
-
-          if let labels = taggingVM.deepTags?.labels, !labels.isEmpty {
-            Text("Labels")
-              .font(.headline)
-              .padding(.horizontal)
-
-            LazyVGrid(columns: chipColumns, spacing: 8) {
-              ForEach(labels, id: \.name) { lbl in
-                Text(lbl.name.capitalized)
-                  .padding(.horizontal, 8)
-                  .padding(.vertical, 4)
-                  .background(Color.gray.opacity(0.2))
-                  .cornerRadius(8)
-              }
-            }
-            .padding(.horizontal)
-          }
+          chipSection("Mood Tag", chips: taggingVM.moodTags)      { /* edit mood tags */ }
         }
+        .padding(.vertical)
       }
 
-      // — Save / Delete buttons
-      HStack(spacing: 20) {
+      // — Bottom Delete / Save buttons
+      HStack(spacing: 12) {
         Button(action: onDelete) {
           Text("Delete")
+            .font(.subheadline)
             .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.red.opacity(0.8))
-            .foregroundColor(.white)
-            .cornerRadius(10)
+            .padding(.vertical, 10)
+            .background(Color.brandPink)
+            .foregroundColor(.black)
+            .cornerRadius(8)
         }
         Button(action: onSave) {
           Text("Save")
+            .font(.subheadline)
             .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.accentColor)
-            .foregroundColor(.white)
-            .cornerRadius(10)
+            .padding(.vertical, 10)
+            .background(Color.brandGreen)  //
+            .foregroundColor(.black)
+            .cornerRadius(8)
         }
       }
-      .padding([.horizontal, .bottom])
+      .padding(.horizontal)
+      .padding(.bottom, 16)
     }
     .background(Color.white)
     .cornerRadius(12)
     .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 2)
-
-    // — when we get new detections, crop to the first box
-    .onReceive(taggingVM.$detectedItems) { items in
-      guard let first = items.first else { return }
-
-      // build normalized CGRect from your BoundingBox
-      let bbox = first.bounding_box
-      let normRect = CGRect(
-        x: bbox.left,
-        y: bbox.top,
-        width: bbox.width,
-        height: bbox.height
-      )
-
-      if let cropped = originalImage.cropped(toNormalized: normRect) {
-        displayImage = cropped
-      }
-    }
   }
 }
 
+// MARK: — Preview
 
+#if DEBUG
+struct TaggedItemPreviewView_Previews: PreviewProvider {
+  static var previews: some View {
+    TaggedItemPreviewView(
+      originalImage: UIImage(systemName: "photo")!,
+      taggingVM: ImageTaggingViewModel(),
+      onSave: {},
+      onDelete: {}
+    )
+    .previewLayout(.sizeThatFits)
+    .padding()
+  }
+}
+#endif
