@@ -6,12 +6,20 @@
 //
 
 import SwiftUI
+import FirebaseCore
+import Firebase
+
+
+
 
 @main
 struct myFinalProjectApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainTabView()
+
+//            WelcomeView()
         }
     }
 }

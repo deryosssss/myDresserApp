@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>SpicyRice-Regular.ttf</string>
+		<string>Agdasima-Regular.ttf</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs to access the camera to take photos of your clothes.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to your photo library so you can pick existing outfit photos.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We need your location to show accurate local weather</string>
+	<key>OpenWeatherMapAPIKey</key>
+	<string>be9a4303780af10f82ec47eb7d688e0a</string>
+	<key>LykdatAPIKey</key>
+	<string>3f98dfe1785b34120accb637c0bb40e8401fe70550dc6857ed6d901e055e967a</string>
+	<key>FacebookAppID</key>
+	<string>24485839501057850</string>
+	<key>FacebookClientToken</key>
+	<string>e2794133369bd6393dd9ab0cbbc734e6</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fb24485839501057850</string>
+			</array>
+		</dict>
+	</array>
+	<key>FacebookDisplayName</key>
+	<string>My Final Project</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>fbapi</string>
+		<string>fb-messenger-api</string>
+		<string>fbauth2</string>
+		<string>fbshareextension</string>
+	</array>
+	<key>FacebookAutoLogAppEventsEnabled</key>
+	<true/>
+	<key>FacebookAdvertiserIDCollectionEnabled</key>
+	<true/>
+</dict>
+</plist>
