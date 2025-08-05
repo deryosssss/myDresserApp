@@ -88,14 +88,9 @@ struct AddItemCameraView: View {
             TaggedItemPreviewView(
                 originalImage: item.ui,
                 taggingVM: taggingVM,
-                onSave: {
-                    previewImage = nil
-                },
-                onDelete: {
-                    // remove exactly that image
-                    if let idx = photos.firstIndex(where: { $0 === item.ui }) {
-                        photos.remove(at: idx)
-                    }
+                onDismiss: {
+                    // both save & delete now just dismiss
+                    photos.removeAll { $0 === item.ui }
                     previewImage = nil
                 }
             )

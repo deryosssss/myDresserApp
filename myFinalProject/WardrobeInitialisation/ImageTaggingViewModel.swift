@@ -5,46 +5,70 @@
 //  Created by Derya Baglan on 01/08/2025.
 //
 
+
 import SwiftUI
 import UIKit
+import FirebaseStorage
 import FirebaseFirestore
 
-/// View-model that sends images to Lykdat for both item detection and deep tagging,
-/// and exposes both the auto-tags **and** all editable fields via @Published.
 class ImageTaggingViewModel: ObservableObject {
     // MARK: — Auto-tag results
     @Published var detectedItems: [ItemDetectionResponse.DetectedItem] = []
     @Published var deepTags: DeepTaggingResponse.DataWrapper? = nil
 
-    @Published var isLoading: Bool = false
+    @Published var isLoading = false
     @Published var errorMessage: String? = nil
 
     // MARK: — Editable metadata fields
-    @Published var category: String = ""
-    @Published var subcategory: String = ""
+    @Published var category = ""
+    @Published var subcategory = ""
     @Published var colours: [String] = []
     @Published var tags: [String] = []
-    @Published var length: String = ""
-    @Published var style: String = ""
-    @Published var designPattern: String = ""
-    @Published var closureType: String = ""
-    @Published var fit: String = ""
-    @Published var material: String = ""
-    @Published var fastening: String = ""
-    @Published var dressCode: String = ""
-    @Published var season: String = ""
-    @Published var size: String = ""
+    @Published var length = ""
+    @Published var style = ""
+    @Published var designPattern = ""
+    @Published var closureType = ""
+    @Published var fit = ""
+    @Published var material = ""
+    @Published var fastening = ""
+    @Published var dressCode = ""
+    @Published var season = ""
+    @Published var size = ""
     @Published var moodTags: [String] = []
 
     private let client = LykdatClient()
-    private let firestore = WardrobeFirestoreService()
+    private let storage = Storage.storage().reference()
+    private let firestoreService = WardrobeFirestoreService()
 
-    /// Sends the image off for both detection and deep tags.
+    // MARK: — Helpers
+
+    /// Clears every field (called on delete)
+    func clearAll() {
+        detectedItems.removeAll()
+        deepTags = nil
+        category = ""
+        subcategory = ""
+        colours.removeAll()
+        tags.removeAll()
+        length = ""
+        style = ""
+        designPattern = ""
+        closureType = ""
+        fit = ""
+        material = ""
+        fastening = ""
+        dressCode = ""
+        season = ""
+        size = ""
+        moodTags.removeAll()
+    }
+
+    // MARK: — Auto-tagging
+
+    /// Sends the image off for both detection and deep tags,
+    /// then seeds your editable fields.
     func autoTag(image: UIImage) {
-        guard let data = image.jpegData(compressionQuality: 0.8) else {
-            // never show a user‐visible error here
-            return
-        }
+        guard let data = image.jpegData(compressionQuality: 0.8) else { return }
         isLoading = true
         errorMessage = nil
 
@@ -54,15 +78,11 @@ class ImageTaggingViewModel: ObservableObject {
                 case .success(let items):
                     self?.detectedItems = items
                     if let first = items.first {
-                        self?.category = first.name.capitalized
+                        self?.category    = first.name.capitalized
+                        self?.subcategory = first.category.capitalized
                     }
-
-                case .failure(let err):
-                    let msg = err.localizedDescription
-                    // swallow the “data couldn’t be read” picker error
-                    if !msg.contains("couldn’t be read") {
-                        self?.errorMessage = "Detection failed: \(msg)"
-                    }
+                case .failure:
+                    break
                 }
 
                 self?.client.deepTags(imageData: data) { deepResult in
@@ -74,12 +94,24 @@ class ImageTaggingViewModel: ObservableObject {
                             self?.colours = tagData.colors.map { $0.name.capitalized }
                             self?.tags    = tagData.labels.map { $0.name.capitalized }
 
-                        case .failure(let err):
-                            let msg = err.localizedDescription
-                            // again, only show “real” errors
-                            if !msg.contains("couldn’t be read") {
-                                self?.errorMessage = "Tagging failed: \(msg)"
+                            if let fashionItem = tagData.items.first {
+                                self?.category    = fashionItem.name.capitalized
+                                self?.subcategory = fashionItem.category.capitalized
                             }
+                            if let lengthLab = tagData.labels.first(where: { $0.classification == "length" }) {
+                                self?.length = lengthLab.name.capitalized
+                            }
+                            if let pattern = tagData.labels.first(where: { $0.classification == "textile pattern" }) {
+                                self?.designPattern = pattern.name.capitalized
+                            }
+                            if let fitLab = tagData.labels.first(where: { $0.classification == "silhouette" && $0.name.contains("fit") }) {
+                                self?.fit = fitLab.name.capitalized
+                            }
+                            if let closureLab = tagData.labels.first(where: { $0.classification == "opening type" }) {
+                                self?.closureType = closureLab.name.capitalized
+                            }
+                        case .failure(let err):
+                            self?.errorMessage = err.localizedDescription
                         }
                     }
                 }
@@ -87,27 +119,70 @@ class ImageTaggingViewModel: ObservableObject {
         }
     }
 
-    /// Persists the last tagged results (including your edited fields) to Firestore.
-    /// Expects you to have already uploaded the image and received its URL.
-    func saveToFirestore(imageURL: String) {
-        // Collect everything
-        let itemNames  = detectedItems.map { $0.name }
-        let colorNames = colours
-        let labelNames = tags
+    // MARK: — Firebase Persistence
 
-        firestore.saveWardrobeItem(
+    /// Uploads the image to Storage, then saves all fields + URL to Firestore via your service
+    func uploadAndSave(image: UIImage) {
+        guard let data = image.jpegData(compressionQuality: 0.8) else { return }
+        let path = "wardrobe/\(UUID().uuidString).jpg"
+        let ref  = storage.child(path)
+
+        isLoading = true
+        ref.putData(data, metadata: nil) { [weak self] _, error in
+            guard let self = self else { return }
+            if let error = error {
+                self.isLoading = false
+                self.errorMessage = "Upload failed: \(error.localizedDescription)"
+                return
+            }
+            ref.downloadURL { url, error in
+                self.isLoading = false
+                if let url = url {
+                    self.saveToFirestore(imageURL: url.absoluteString)
+                } else if let err = error {
+                    self.errorMessage = "URL retrieval failed: \(err.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    /// Constructs a `WardrobeItem` and calls the service to save it.
+    private func saveToFirestore(imageURL: String) {
+        let item = WardrobeItem(
             imageURL: imageURL,
-            detectedItems: itemNames,
-            colors: colorNames,
-            labels: labelNames,
-            // plus all your other fields if your service supports them…
-        ) { error in
-            if let err = error {
-                print("❌ Firestore save error:", err.localizedDescription)
-            } else {
-                print("✅ Wardrobe item saved successfully")
+            category: category,
+            subcategory: subcategory,
+            colours: colours,
+            customTags: tags,
+            length: length,
+            style: style,
+            designPattern: designPattern,
+            closureType: closureType,
+            fit: fit,
+            material: material,
+            fastening: fastening,
+            dressCode: dressCode,
+            season: season,
+            size: size,
+            moodTags: moodTags,
+            addedAt: nil  // Firestore server will populate this
+        )
+
+        isLoading = true
+        firestoreService.save(item) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+                switch result {
+                case .success():
+                    print("✅ Wardrobe item saved")
+                case .failure(let err):
+                    self?.errorMessage = "Save failed: \(err.localizedDescription)"
+                }
             }
         }
     }
 }
+
+
+
 

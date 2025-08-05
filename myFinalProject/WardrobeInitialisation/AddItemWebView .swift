@@ -9,26 +9,32 @@ import SwiftUI
 import WebKit
 import UIKit
 
+/// A tiny wrapper so we can drive `.sheet(item:)` with a UIImage.
+private struct PreviewImage: Identifiable {
+    let id = UUID()
+    let ui: UIImage
+}
+
 struct AddItemWebView: View {
     @StateObject private var webVM = WebViewCropperViewModel()
     @StateObject private var taggingVM = ImageTaggingViewModel()
     @StateObject private var removeBg = RemoveBgClient()
 
     /// The image that has been cropped from the web snapshot
-    @State private var previewImage: UIImage?
+    @State private var previewImage: PreviewImage?
     /// Controls presentation of the preview sheet
     @State private var showingPreview = false
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            // 1) Show a full-screen WebView for image search
+            // 1) Full-screen WebView for image search
             WebViewRepresentable(
                 webView: webVM.webView,
                 url: URL(string: "https://images.google.com")!
             )
             .edgesIgnoringSafeArea(.all)
 
-            // 2) Snapshot button: grab a screenshot of the WebView
+            // 2) Snapshot button
             Button(action: webVM.captureSnapshot) {
                 Image(systemName: "camera.circle.fill")
                     .resizable()
@@ -36,52 +42,39 @@ struct AddItemWebView: View {
                     .padding()
             }
         }
-        // 3) When the snapshot is ready, show the cropper
+        // 3) Fullscreen cropper
         .fullScreenCover(isPresented: $webVM.showingCrop) {
             if let img = webVM.capturedImage {
                 CropImageView(image: img) { cropped in
-                    // a) dismiss cropper
                     webVM.showingCrop = false
-
-                    // b) remove background
                     removeBg.removeBackground(from: cropped) { result in
                         DispatchQueue.main.async {
                             let finalImg: UIImage
                             switch result {
-                            case .success(let cutout):
-                                finalImg = cutout
-                            case .failure:
-                                // fallback to the cropped image
-                                finalImg = cropped
+                            case .success(let cutout): finalImg = cutout
+                            case .failure: finalImg = cropped
                             }
-                            // c) store for preview & auto-tag
-                            previewImage = finalImg
+                            // set previewImage and auto-tag
+                            previewImage = PreviewImage(ui: finalImg)
                             taggingVM.autoTag(image: finalImg)
-                            // d) show the tagging preview
                             showingPreview = true
                         }
                     }
                 }
             }
         }
-        // 4) After tagging completes, present the preview sheet
-        .sheet(isPresented: $showingPreview) {
-            if let img = previewImage {
-                TaggedItemPreviewView(
-                    originalImage: img,
-                    taggingVM: taggingVM,
-                    onSave: {
-                        // handle save (e.g. upload, Firestore, etc.)
-                        showingPreview = false
-                    },
-                    onDelete: {
-                        // dismiss without saving
-                        showingPreview = false
-                    }
-                )
-            }
+        // 4) Preview sheet now uses PreviewImage (Identifiable)
+        .sheet(item: $previewImage) { item in
+            TaggedItemPreviewView(
+                originalImage: item.ui,
+                taggingVM: taggingVM,
+                onDismiss: {
+                    previewImage = nil
+                }
+            )
         }
-        // 5) Overlay loading indicator or errors on top of the WebView
+
+        // 5) Overlay loading/errors
         .overlay(
             VStack {
                 if taggingVM.isLoading {
@@ -94,8 +87,8 @@ struct AddItemWebView: View {
                         .padding(.horizontal)
                 }
             }
-            .padding()
-            , alignment: .top
+            .padding(),
+            alignment: .top
         )
     }
 }

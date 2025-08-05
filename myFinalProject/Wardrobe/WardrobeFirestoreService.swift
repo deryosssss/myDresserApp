@@ -6,38 +6,69 @@
 //
 
 import FirebaseFirestore
-import FirebaseCore  
+import FirebaseCore
 
 class WardrobeFirestoreService {
-  private let collection = "wardrobeItems"
+    private let collectionName = "wardrobeItems"
 
-  /// Always grab the Firestore instance *after* FirebaseApp.configure() has run.
-  private var db: Firestore {
-    // Just in case you somehow end up here too early, configure now.
-    if FirebaseApp.app() == nil {
-      FirebaseApp.configure()
+    private var db: Firestore {
+        if FirebaseApp.app() == nil {
+            FirebaseApp.configure()
+        }
+        return Firestore.firestore()
     }
-    return Firestore.firestore()
-  }
 
-  func saveWardrobeItem(
-    imageURL: String,
-    detectedItems: [String],
-    colors: [String],
-    labels: [String],
-    completion: @escaping (Error?) -> Void
-  ) {
-    let data: [String: Any] = [
-      "imageURL": imageURL,
-      "detectedItems": detectedItems,
-      "colors": colors,
-      "labels": labels,
-      "addedAt": Timestamp(date: Date())
-    ]
+    // MARK: — Save
 
-    db.collection(collection)
-      .addDocument(data: data) { error in
-        completion(error)
-      }
-  }
+    /// Saves a full `WardrobeItem` into Firestore.
+    /// The `addedAt` field will be populated server-side.
+    func save(
+        _ item: WardrobeItem,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        do {
+            _ = try db
+                .collection(collectionName)
+                .addDocument(from: item) { error in
+                    if let err = error {
+                        completion(.failure(err))
+                    } else {
+                        completion(.success(()))
+                    }
+                }
+        } catch {
+            completion(.failure(error))
+        }
+    }
+
+    // MARK: — Listen
+
+    /// Starts a real-time listener on the `wardrobeItems` collection,
+    /// ordered by `addedAt` descending. Returns a `ListenerRegistration`
+    /// so you can stop it when needed.
+    func listen(
+        onUpdate: @escaping (Result<[WardrobeItem], Error>) -> Void
+    ) -> ListenerRegistration {
+        return db
+            .collection(collectionName)
+            .order(by: "addedAt", descending: true)
+            .addSnapshotListener { snapshot, error in
+                if let err = error {
+                    onUpdate(.failure(err))
+                    return
+                }
+                guard let docs = snapshot?.documents else {
+                    onUpdate(.success([]))
+                    return
+                }
+                do {
+                    let items = try docs.compactMap { doc in
+                        try doc.data(as: WardrobeItem.self)
+                    }
+                    onUpdate(.success(items))
+                } catch {
+                    onUpdate(.failure(error))
+                }
+            }
+    }
 }
