@@ -8,7 +8,7 @@
 import FirebaseFirestore
 import FirebaseCore
 
-class WardrobeFirestoreService {
+class WardrobeFirestoreService: WardrobeDataService {
     private let collectionName = "wardrobeItems"
 
     private var db: Firestore {
@@ -18,57 +18,75 @@ class WardrobeFirestoreService {
         return Firestore.firestore()
     }
 
-    // MARK: — Save
-
-    /// Saves a full `WardrobeItem` into Firestore.
-    /// The `addedAt` field will be populated server-side.
-    func save(
-        _ item: WardrobeItem,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        do {
-            _ = try db
-                .collection(collectionName)
-                .addDocument(from: item) { error in
-                    if let err = error {
-                        completion(.failure(err))
-                    } else {
-                        completion(.success(()))
-                    }
-                }
-        } catch {
-            completion(.failure(error))
-        }
-    }
-
     // MARK: — Listen
-
-    /// Starts a real-time listener on the `wardrobeItems` collection,
-    /// ordered by `addedAt` descending. Returns a `ListenerRegistration`
-    /// so you can stop it when needed.
     func listen(
-        onUpdate: @escaping (Result<[WardrobeItem], Error>) -> Void
+        _ callback: @escaping (Result<[WardrobeItem], Error>) -> Void
     ) -> ListenerRegistration {
         return db
             .collection(collectionName)
             .order(by: "addedAt", descending: true)
             .addSnapshotListener { snapshot, error in
                 if let err = error {
-                    onUpdate(.failure(err))
+                    callback(.failure(err))
                     return
                 }
                 guard let docs = snapshot?.documents else {
-                    onUpdate(.success([]))
+                    callback(.success([]))
                     return
                 }
                 do {
                     let items = try docs.compactMap { doc in
                         try doc.data(as: WardrobeItem.self)
                     }
-                    onUpdate(.success(items))
+                    callback(.success(items))
                 } catch {
-                    onUpdate(.failure(error))
+                    callback(.failure(error))
                 }
             }
+    }
+
+    // MARK: — Save (New)
+    func save(_ item: WardrobeItem, completion: @escaping (Result<Void, Error>) -> Void) {
+        var data = item.dictionary
+        // clear out server timestamps so Firestore can populate them
+        data["addedAt"] = FieldValue.serverTimestamp()
+        data["lastWorn"] = item.lastWorn != nil
+            ? Timestamp(date: item.lastWorn!)
+            : FieldValue.delete()
+        db.collection(collectionName)
+          .addDocument(data: data) { error in
+            if let err = error {
+                completion(.failure(err))
+            } else {
+                completion(.success(()))
+            }
+        }
+    }
+
+    // MARK: — Delete
+    func deleteItem(_ id: String) {
+        db.collection(collectionName).document(id).delete { error in
+            if let err = error {
+                print("❌ Error deleting item:", err)
+            }
+        }
+    }
+
+    // MARK: — Update
+    func updateItem(_ id: String, data: [String: Any]) {
+        db.collection(collectionName).document(id).updateData(data) { error in
+            if let err = error {
+                print("❌ Error updating item:", err)
+            }
+        }
+    }
+}
+
+extension Encodable {
+    var dictionary: [String:Any] {
+        (try? JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(self),
+            options: .allowFragments
+        )) as? [String:Any] ?? [:]
     }
 }

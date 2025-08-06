@@ -20,12 +20,7 @@ struct myFinalProjectApp: App {
     
     var body: some Scene {
         WindowGroup {
-//            TaggedItemPreviewView(
-//                    originalImage: UIImage(named: "placeholder")!,
-//                    taggingVM: taggingVM,
-//                    onSave: { /* persist and maybe dismiss or navigate */ },
-//                    onDelete: { /* clear and maybe pop back */ }
-//                  )
+
             MainTabView()
 
 

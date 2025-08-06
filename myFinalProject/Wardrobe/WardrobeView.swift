@@ -1,4 +1,3 @@
-//
 //  WardrobeView.swift
 //  myFinalProject
 //
@@ -6,49 +5,6 @@
 //
 
 import SwiftUI
-
-// MARK: — Single Item Card
-
-private struct WardrobeItemCard: View {
-    let item: WardrobeItem
-    let isFavorite: Bool
-    let toggleFavorite: () -> Void
-
-    var body: some View {
-        ZStack(alignment: .bottomTrailing) {
-            AsyncImage(url: URL(string: item.imageURL)) { phase in
-                switch phase {
-                case .empty:
-                    ProgressView()
-                        .frame(width: 160, height: 180)
-                case .success(let img):
-                    img
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 160, height: 180)
-                        .clipped()
-                default:
-                    Color(.systemGray5)
-                        .frame(width: 160, height: 180)
-                }
-            }
-            .background(Color(.systemGray5))
-
-
-            Button(action: toggleFavorite) {
-                Image(systemName: isFavorite ? "heart.fill" : "heart")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 16, height: 16)
-                    .padding(8)
-                    .background(Color.white)
-                    .clipShape(Circle())
-                    .shadow(radius: 1)
-            }
-            .offset(x: -8, y: -8)
-        }
-    }
-}
 
 struct WardrobeView: View {
     @StateObject private var viewModel: WardrobeViewModel
@@ -71,10 +27,20 @@ struct WardrobeView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 header
-                tabs
-                categoryScroll       // <= uses fixed .renderingMode
-                searchFilters
-                itemsGrid
+                tabPicker
+
+                if selectedTab == .items {
+                    categoryScroll
+                    searchFilters
+                }
+
+                ScrollView {
+                    if selectedTab == .items {
+                        itemsGrid
+                    } else {
+                        outfitsGrid
+                    }
+                }
             }
             .sheet(isPresented: $showFilterSheet) {
                 WardrobeFilterView()
@@ -83,7 +49,7 @@ struct WardrobeView: View {
         }
     }
 
-    // MARK: — Sections
+    // MARK: — Header
 
     private var header: some View {
         ZStack {
@@ -111,45 +77,36 @@ struct WardrobeView: View {
         .padding(.bottom, 16)
     }
 
-    private var tabs: some View {
-        HStack(spacing: 0) {
+    // MARK: — Tabs
+
+    private var tabPicker: some View {
+        Picker("", selection: $selectedTab) {
             ForEach(Tab.allCases, id: \.self) { tab in
-                Button(action: { selectedTab = tab }) {
-                    Text(tab.rawValue)
-                        .font(.subheadline).bold()
-                        .foregroundColor(selectedTab == tab ? .primary : .gray)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                }
+                Text(tab.rawValue).tag(tab)
             }
         }
-        .background(Color.white)
-        .overlay(Divider(), alignment: .bottom)
+        .pickerStyle(SegmentedPickerStyle())
+        .padding(.horizontal)
     }
+
+    // MARK: — Items Helpers
 
     private var categoryScroll: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 24) {
                 ForEach(Category.allCases, id: \.self) { cat in
-                    VStack(spacing: 4) {
-                        Button(action: { selectedCategory = cat }) {
+                    Button(action: { selectedCategory = cat }) {
+                        VStack {
                             Image(systemName: cat.iconName)
-                                .resizable()                         // → first, make it resizable
-                                .renderingMode(.template)            // then apply template mode
-                                .scaledToFit()                       // then scale to fit
+                                .resizable().scaledToFit()
                                 .frame(width: 36, height: 36)
-                                .foregroundColor(.black)             // color the symbol
                                 .padding(8)
-                                .background(
-                                    selectedCategory == cat
-                                        ? Color.brandGreen
-                                        : Color.clear
-                                )
+                                .foregroundColor(.black)
+                                .background(selectedCategory == cat ? Color.brandGreen : Color.clear)
                                 .clipShape(Circle())
+                            Text(cat.rawValue).font(.caption2)
+                                .foregroundColor(.black)
                         }
-                        Text(cat.rawValue)
-                            .font(.caption2)
-                            .foregroundColor(.primary)
                     }
                 }
             }
@@ -161,48 +118,70 @@ struct WardrobeView: View {
     private var searchFilters: some View {
         HStack(spacing: 16) {
             SearchBar(text: $searchText, placeholder: "Search items")
-            Button(action: { showOnlyFavorites.toggle() }) {
+            Button { showOnlyFavorites.toggle() } label: {
                 Image(systemName: showOnlyFavorites ? "heart.fill" : "heart")
-                    .font(.title2)
                     .foregroundColor(.red)
             }
-            Button(action: { showFilterSheet = true }) {
+            Button { showFilterSheet = true } label: {
                 Image(systemName: "slider.horizontal.3")
-                    .font(.title2)
-                    .foregroundColor(.primary)
+                    .foregroundColor(.black)
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 8)
     }
 
     private var itemsGrid: some View {
-        ScrollView {
-            LazyVGrid(columns: columns, spacing: 16) {
-                ForEach(filteredItems) { item in
+        LazyVGrid(columns: columns, spacing: 16) {
+            ForEach(filteredItems) { item in
+                NavigationLink {
+                    ItemDetailView(item: item, wardrobeVM: viewModel) {
+                        viewModel.delete(item)
+                    }
+                } label: {
                     WardrobeItemCard(
                         item: item,
                         isFavorite: viewModel.isFavorite(item),
-                        toggleFavorite: { toggleFavorite(item) }
+                        toggleFavorite: { viewModel.toggleFavorite(item) }
                     )
                 }
+                .buttonStyle(.plain)
             }
-            .padding(16)
         }
+        .padding(16)
     }
 
-    // MARK: — Helpers
-
     private var filteredItems: [WardrobeItem] {
-        guard selectedTab == .items else { return [] }
-        return viewModel.items
+        viewModel.items
             .filter { selectedCategory == .all || $0.matches(category: selectedCategory) }
             .filter { searchText.isEmpty || $0.category.localizedCaseInsensitiveContains(searchText) }
             .filter { !showOnlyFavorites || viewModel.isFavorite($0) }
     }
 
-    private func toggleFavorite(_ item: WardrobeItem) {
-        viewModel.toggleFavorite(item)
+    // MARK: — Outfits Grid
+
+    private var outfitsGrid: some View {
+        let allOutfits = viewModel.outfitsByItem.values.flatMap { $0 }
+        return LazyVGrid(columns: columns, spacing: 16) {
+            ForEach(allOutfits) { outfit in
+                NavigationLink {
+                    OutfitDetailView(
+                        outfit: outfit
+                    )
+                } label: {
+                    AsyncImage(url: URL(string: outfit.imageURL)) { phase in
+                        switch phase {
+                        case .empty: ProgressView().frame(height: 180)
+                        case .success(let img):
+                            img.resizable().scaledToFill().frame(height: 180).clipped()
+                        default: Color(.systemGray5).frame(height: 180)
+                        }
+                    }
+                    .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
     }
 }
 
@@ -216,12 +195,12 @@ extension WardrobeView {
              dress = "Dress", bottoms = "Bottoms", footwear = "Footwear"
         var iconName: String {
             switch self {
-            case .all:       return "square.grid.2x2"
-            case .top:       return "tshirt"
+            case .all: return "square.grid.2x2"
+            case .top: return "tshirt"
             case .outerwear: return "jacket"
-            case .dress:     return "dress"
-            case .bottoms:   return "pants"
-            case .footwear:  return "shoeprints.fill"
+            case .dress: return "dress"
+            case .bottoms: return "pants"
+            case .footwear: return "shoeprints.fill"
             }
         }
     }
@@ -233,8 +212,8 @@ extension WardrobeView {
             HStack {
                 Image(systemName: "magnifyingglass")
                 TextField(placeholder, text: $text)
-                    .autocapitalization(.none)
                     .disableAutocorrection(true)
+                    .autocapitalization(.none)
             }
             .padding(8)
             .background(Color(.systemGray6))
@@ -243,29 +222,86 @@ extension WardrobeView {
     }
 }
 
-// MARK: — Preview
+private struct WardrobeItemCard: View {
+    let item: WardrobeItem
+    let isFavorite: Bool
+    let toggleFavorite: () -> Void
 
-struct WardrobeView_Previews: PreviewProvider {
-    static var previews: some View {
-        let sample1 = WardrobeItem(
-            imageURL: "", category: "Dress", subcategory: "Cocktail",
-            colours: [], customTags: [], length: "",
-            style: "", designPattern: "", closureType: "",
-            fit: "", material: "", fastening: "",
-            dressCode: "", season: "", size: "",
-            moodTags: [], addedAt: Date()
-        )
-        let sample2 = WardrobeItem(
-            imageURL: "", category: "Top", subcategory: "Blouse",
-            colours: [], customTags: [], length: "",
-            style: "", designPattern: "", closureType: "",
-            fit: "", material: "", fastening: "",
-            dressCode: "", season: "", size: "",
-            moodTags: [], addedAt: Date()
-        )
-        let vm = WardrobeViewModel()
-        vm.items = [sample1, sample2]
-
-        return WardrobeView(viewModel: vm)
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            AsyncImage(url: URL(string: item.imageURL)) { phase in
+                switch phase {
+                case .empty: ProgressView().frame(width: 160, height: 180)
+                case .success(let img):
+                    img.resizable().scaledToFill().frame(width: 160, height: 180).clipped()
+                default: Color(.systemGray5).frame(width: 160, height: 180)
+                }
+            }
+            Button(action: toggleFavorite) {
+                Image(systemName: isFavorite ? "heart.fill" : "heart")
+                    .foregroundColor(.black)
+                    .padding(8)
+                    .background(Color.white)
+                    .clipShape(Circle())
+            }
+            .offset(x: -8, y: -8)
+        }
     }
 }
+
+
+
+// MARK: — Preview
+struct WardrobeView_Previews: PreviewProvider {
+    static var previews: some View {
+        let sampleItem = WardrobeItem(
+            id: "item1",
+            imageURL: "",
+            category: "Dress",
+            subcategory: "Cocktail",
+            length: "Maxi",
+            style: "Elegant",
+            designPattern: "Plain",
+            closureType: "Zipper",
+            fit: "Regular",
+            material: "Silk",
+            fastening: "None",
+            dressCode: "Black Tie",
+            season: "Summer",
+            size: "M",
+            colours: ["ff66a3", "0099ff"],
+            customTags: ["Party"],
+            moodTags: ["Happy"],
+            addedAt: Date(),
+            lastWorn: nil
+        )
+        let vm = WardrobeViewModel()
+        vm.items = [sampleItem]
+
+        // Add two outfits for preview
+                let outfit1 = Outfit(
+                   id: "o1",
+                   imageURL: "https://via.placeholder.com/100",
+                    itemImageURLs: [
+                        "https://via.placeholder.com/80",
+                        "https://via.placeholder.com/80/ff0000"
+                    ],
+                    tags: ["Casual", "Summer"]
+                )
+               let outfit2 = Outfit(
+                    id: "o2",
+                   imageURL: "https://via.placeholder.com/100/0000FF",
+                   itemImageURLs: [
+                        "https://via.placeholder.com/80/0000FF",
+                        "https://via.placeholder.com/80/00FF00"
+                    ],
+                   tags: ["Sporty"]
+            )
+                vm.setOutfits([outfit1, outfit2], for: sampleItem)
+
+        return WardrobeView(viewModel: vm)
+            .previewDevice("iPhone 14 Pro")
+    }
+}
+
+

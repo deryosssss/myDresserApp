@@ -1,9 +1,7 @@
-//
 //  TaggedItemPreviewView.swift
 //  myFinalProject
 //
 //  Created by Derya Baglan on 01/08/2025.
-//
 //
 
 import SwiftUI
@@ -12,17 +10,16 @@ import UIKit
 // MARK: — Color Helpers
 
 extension Color {
-    /// Initialize from hex string (e.g. "#ff0000" or "ff0000").
     init?(hex: String) {
         var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         if s.hasPrefix("#") { s.removeFirst() }
         guard s.count == 6, let v = Int(s, radix: 16) else { return nil }
-        let r = Double((v >> 16) & 0xFF) / 255
-        let g = Double((v >>  8) & 0xFF) / 255
-        let b = Double((v >>  0) & 0xFF) / 255
-        self.init(red: r, green: g, blue: b)
+        self.init(
+            red:   Double((v >> 16) & 0xFF)/255,
+            green: Double((v >>  8) & 0xFF)/255,
+            blue:  Double((v >>  0) & 0xFF)/255
+        )
     }
-    /// Compute luminance to choose white/black text.
     static func isDark(hex: String) -> Bool {
         var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         if s.hasPrefix("#") { s.removeFirst() }
@@ -30,38 +27,26 @@ extension Color {
         let r = Double((v >> 16) & 0xFF)
         let g = Double((v >>  8) & 0xFF)
         let b = Double((v >>  0) & 0xFF)
-        let lum = (0.299*r + 0.587*g + 0.114*b) / 255
+        let lum = (0.299*r + 0.587*g + 0.114*b)/255
         return lum < 0.5
     }
 }
 
 struct TaggedItemPreviewView: View {
-    // MARK: Inputs
     let originalImage: UIImage
     @ObservedObject var taggingVM: ImageTaggingViewModel
-    var onDismiss: () -> Void    // call to dismiss sheet
-    
-    // MARK: State for editing
+    var onDismiss: () -> Void
+
     @State private var editingField: EditableField?
-    @State private var draftText: String = ""
-    
-    // MARK: — Which field is being edited?
-    enum EditableField: Hashable, Identifiable {
-        case category, subcategory, length, style, designPattern
-        case closureType, fit, material, dressCode, season, size
-        case colours, customTags, moodTags
-        var id: Self { self }
-    }
-    
+    @State private var draftText = ""
+
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                // — Title
                 Text("Review & Save")
                     .font(AppFont.spicyRice(size: 28))
                     .padding(.top)
-                
-                // — Image
+
                 Image(uiImage: originalImage)
                     .resizable()
                     .scaledToFit()
@@ -69,48 +54,48 @@ struct TaggedItemPreviewView: View {
                     .background(Color(white: 0.93))
                     .cornerRadius(12)
                     .padding(.horizontal)
-                
-                // — Colours (inline, no gray box)
-                if let colors = taggingVM.deepTags?.colors, !colors.isEmpty {
+
+                // Colours inline
+                if let cols = taggingVM.deepTags?.colors, !cols.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Colours").bold().padding(.horizontal)
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 6) {
-                                ForEach(colors, id: \.name) { tag in
-                                    let bg = Color(hex: tag.hex_code) ?? .gray
-                                    Text(tag.name.capitalized)
+                                ForEach(cols, id: \.hex_code) { c in
+                                    let bg = Color(hex: c.hex_code) ?? .gray
+                                    Text(c.name.capitalized)
                                         .font(.caption)
                                         .padding(.vertical, 6)
                                         .padding(.horizontal, 12)
                                         .background(bg)
-                                        .foregroundColor(Color.isDark(hex: tag.hex_code) ? .white : .black)
+                                        .foregroundColor(Color.isDark(hex: c.hex_code) ? .white : .black)
                                         .cornerRadius(12)
                                 }
-                                tinyEditButton { editField(.colours) }
+                                TinyEditButton { startEditing(.colours) }
                             }
                             .padding(.horizontal)
                         }
                     }
                 }
-                
-                // — Auto-generated single-value fields (brandYellow chips)
-                chipRow("Category",     text: $taggingVM.category,     field: .category)
-                chipRow("Sub Category", text: $taggingVM.subcategory,   field: .subcategory)
-                chipRow("Length",       text: $taggingVM.length,        field: .length)
-                chipRow("Style",        text: $taggingVM.style,         field: .style)
-                chipRow("Design / Pattern", text: $taggingVM.designPattern, field: .designPattern)
-                chipRow("Closure",      text: $taggingVM.closureType,   field: .closureType)
-                chipRow("Fit",          text: $taggingVM.fit,           field: .fit)
-                chipRow("Material",     text: $taggingVM.material,      field: .material)
-                
-                // — User-added
-                chipSection("Custom Tags", chips: taggingVM.tags,      field: .customTags)
-                chipRow(    "Dress Code", text: $taggingVM.dressCode,  field: .dressCode)
-                chipRow(    "Season",     text: $taggingVM.season,     field: .season)
-                chipRow(    "Size",       text: $taggingVM.size,       field: .size)
-                chipSection("Mood Tag",    chips: taggingVM.moodTags,  field: .moodTags)
-                
-                // — Bottom buttons
+
+                // Single‐value chips
+                ChipRowView(title: "Category",      text: taggingVM.category)     { startEditing(.category) }
+                ChipRowView(title: "Sub Category",  text: taggingVM.subcategory)  { startEditing(.subcategory) }
+                ChipRowView(title: "Length",        text: taggingVM.length)       { startEditing(.length) }
+                ChipRowView(title: "Style",         text: taggingVM.style)        { startEditing(.style) }
+                ChipRowView(title: "Design / Pattern", text: taggingVM.designPattern) { startEditing(.designPattern) }
+                ChipRowView(title: "Closure",       text: taggingVM.closureType) { startEditing(.closureType) }
+                ChipRowView(title: "Fit",           text: taggingVM.fit)          { startEditing(.fit) }
+                ChipRowView(title: "Material",      text: taggingVM.material)     { startEditing(.material) }
+
+                // List‐value chips
+                ChipSectionView(title: "Custom Tags", chips: taggingVM.tags) { startEditing(.customTags) }
+                ChipRowView(title: "Dress Code",     text: taggingVM.dressCode)   { startEditing(.dressCode) }
+                ChipRowView(title: "Season",         text: taggingVM.season)      { startEditing(.season) }
+                ChipRowView(title: "Size",           text: taggingVM.size)        { startEditing(.size) }
+                ChipSectionView(title: "Mood Tags",  chips: taggingVM.moodTags)   { startEditing(.moodTags) }
+
+                // Actions
                 HStack(spacing: 12) {
                     Button("Delete") {
                         taggingVM.clearAll()
@@ -122,7 +107,7 @@ struct TaggedItemPreviewView: View {
                     .background(Color.brandPink)
                     .foregroundColor(.black)
                     .cornerRadius(8)
-                    
+
                     Button("Save") {
                         taggingVM.uploadAndSave(image: originalImage)
                         onDismiss()
@@ -138,189 +123,82 @@ struct TaggedItemPreviewView: View {
                 .padding(.bottom, 16)
             }
         }
-        // card styling
         .background(Color.white)
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 2)
-        // edit sheet
         .sheet(item: $editingField) { field in
-            editSheet(for: field)
+            EditSheet(
+                draftText:          $draftText,
+                editingField:       $editingField,
+                field:              field,
+                singleBindings:     singleBindings,
+                listAddBindings:    listAddBindings,
+                listRemoveBindings: listRemoveBindings,
+                listReadBindings:   listReadBindings
+            )
         }
     }
-    
-    // MARK: Helpers
-    
-    private func tinyEditButton(_ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text("✎")
-                .font(.caption2)
-                .foregroundColor(.blue)
-                .padding(6)
-        }
-        .background(Color.white)
-        .cornerRadius(6)
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.blue, lineWidth: 1))
-    }
-    
-    private func chipRow(_ title: String,
-                         text: Binding<String>,
-                         field: EditableField) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).bold().padding(.horizontal)
-            HStack {
-                let v = text.wrappedValue.trimmingCharacters(in: .whitespaces)
-                Text(v.isEmpty ? "None" : v.capitalized)
-                    .font(.caption)
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 12)
-                    .background(Color(.systemGray5))
-                    .foregroundColor(.black)
-                    .cornerRadius(12)
-                Spacer()
-                tinyEditButton { editField(field) }
-            }
-            .padding(.horizontal)
-        }
-    }
-    
-    private func chipSection(_ title: String,
-                             chips: [String],
-                             bgColor: Color = Color(.systemGray5),
-                             field: EditableField) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).bold().padding(.horizontal)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    if chips.isEmpty {
-                        Text("None")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .padding(.vertical, 6)
-                            .frame(height: 28)
-                    } else {
-                        ForEach(chips, id: \.self) { c in
-                            Text(c.capitalized)
-                                .font(.caption)
-                                .padding(.vertical, 6)
-                                .padding(.horizontal, 12)
-                                .background(bgColor)
-                                .foregroundColor(.black)
-                                .cornerRadius(12)
-                        }
-                    }
-                    tinyEditButton { editField(field) }
-                }
-                .padding(.horizontal)
-            }
-        }
-    }
-    
-    private func editField(_ field: EditableField) {
+
+    // MARK: — Bindings & Editing
+
+    private func startEditing(_ field: EditableField) {
         switch field {
-        case .category:      draftText = taggingVM.category
-        case .subcategory:   draftText = taggingVM.subcategory
-        case .length:        draftText = taggingVM.length
-        case .style:         draftText = taggingVM.style
+        case .colours, .customTags, .moodTags:
+            draftText = ""
+        case .category:    draftText = taggingVM.category
+        case .subcategory: draftText = taggingVM.subcategory
+        case .length:      draftText = taggingVM.length
+        case .style:       draftText = taggingVM.style
         case .designPattern: draftText = taggingVM.designPattern
-        case .closureType:   draftText = taggingVM.closureType
-        case .fit:           draftText = taggingVM.fit
-        case .material:      draftText = taggingVM.material
-        case .dressCode:     draftText = taggingVM.dressCode
-        case .season:        draftText = taggingVM.season
-        case .size:          draftText = taggingVM.size
-        default:             draftText = ""
+        case .closureType: draftText = taggingVM.closureType
+        case .fit:         draftText = taggingVM.fit
+        case .material:    draftText = taggingVM.material
+        case .dressCode:   draftText = taggingVM.dressCode
+        case .season:      draftText = taggingVM.season
+        case .size:        draftText = taggingVM.size
+        default:           draftText = ""
         }
         editingField = field
     }
-    
-    @ViewBuilder
-    private func editSheet(for field: EditableField) -> some View {
-        NavigationView {
-            Form {
-                switch field {
-                case .colours, .customTags, .moodTags:
-                    Section("Add new") {
-                        TextField("Value", text: $draftText)
-                    }
-                    Section("Existing") {
-                        let bind: Binding<[String]> = {
-                            switch field {
-                            case .colours:    return $taggingVM.colours
-                            case .customTags: return $taggingVM.tags
-                            case .moodTags:   return $taggingVM.moodTags
-                            default: fatalError()
-                            }
-                        }()
-                        ForEach(bind.wrappedValue.indices, id: \.self) { idx in
-                            HStack {
-                                Text(bind.wrappedValue[idx])
-                                Spacer()
-                                Button(role: .destructive) {
-                                    bind.wrappedValue.remove(at: idx)
-                                } label: {
-                                    Image(systemName: "trash")
-                                }
-                            }
-                        }
-                    }
-                default:
-                    Section {
-                        TextField(fieldTitle(field), text: $draftText)
-                    }
-                }
-            }
-            .navigationTitle(fieldTitle(field))
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { editingField = nil }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        let v = draftText.trimmingCharacters(in: .whitespaces)
-                        switch field {
-                        case .category:      taggingVM.category = v
-                        case .subcategory:   taggingVM.subcategory = v
-                        case .length:        taggingVM.length = v
-                        case .style:         taggingVM.style = v
-                        case .designPattern: taggingVM.designPattern = v
-                        case .closureType:   taggingVM.closureType = v
-                        case .fit:           taggingVM.fit = v
-                        case .material:      taggingVM.material = v
-                        case .dressCode:     taggingVM.dressCode = v
-                        case .season:        taggingVM.season = v
-                        case .size:          taggingVM.size = v
-                        case .colours where !v.isEmpty:
-                            taggingVM.colours.append(v)
-                        case .customTags where !v.isEmpty:
-                            taggingVM.tags.append(v)
-                        case .moodTags where !v.isEmpty:
-                            taggingVM.moodTags.append(v)
-                        default: break
-                        }
-                        editingField = nil
-                    }
-                }
-            }
-        }
+
+    private var singleBindings: [EditableField: (String) -> Void] {
+        [
+            .category:      { taggingVM.category      = $0 },
+            .subcategory:   { taggingVM.subcategory   = $0 },
+            .length:        { taggingVM.length        = $0 },
+            .style:         { taggingVM.style         = $0 },
+            .designPattern: { taggingVM.designPattern = $0 },
+            .closureType:   { taggingVM.closureType   = $0 },
+            .fit:           { taggingVM.fit           = $0 },
+            .material:      { taggingVM.material      = $0 },
+            .dressCode:     { taggingVM.dressCode     = $0 },
+            .season:        { taggingVM.season        = $0 },
+            .size:          { taggingVM.size          = $0 },
+        ]
     }
-    
-    private func fieldTitle(_ field: EditableField) -> String {
-        switch field {
-        case .colours:       return "Colours"
-        case .customTags:    return "Custom Tags"
-        case .moodTags:      return "Mood Tags"
-        case .category:      return "Category"
-        case .subcategory:   return "Sub-Category"
-        case .length:        return "Length"
-        case .style:         return "Style"
-        case .designPattern: return "Design / Pattern"
-        case .closureType:   return "Closure"
-        case .fit:           return "Fit"
-        case .material:      return "Material"
-        case .dressCode:     return "Dress Code"
-        case .season:        return "Season"
-        case .size:          return "Size"
-        }
+
+    private var listAddBindings: [EditableField: (String) -> Void] {
+        [
+            .colours:    { taggingVM.colours.append($0) },
+            .customTags: { taggingVM.tags.append($0) },
+            .moodTags:   { taggingVM.moodTags.append($0) },
+        ]
+    }
+
+    private var listRemoveBindings: [EditableField: (String) -> Void] {
+        [
+            .colours:    { value in taggingVM.colours.removeAll(where: { $0 == value }) },
+            .customTags: { tag   in taggingVM.tags.removeAll(where: { $0 == tag }) },
+            .moodTags:   { mood  in taggingVM.moodTags.removeAll(where: { $0 == mood }) },
+        ]
+    }
+
+    private var listReadBindings: [EditableField: () -> [String]] {
+        [
+            .colours:    { taggingVM.colours },
+            .customTags: { taggingVM.tags },
+            .moodTags:   { taggingVM.moodTags },
+        ]
     }
 }
 
@@ -331,10 +209,7 @@ struct TaggedItemPreviewView_Previews: PreviewProvider {
         vm.category = "Dress"
         vm.subcategory = "Evening"
         vm.deepTags = DeepTaggingResponse.DataWrapper(
-            colors: [
-                .init(name: "French Pink", hex_code: "ff66a3", confidence: 1),
-                .init(name: "Pacific Blue", hex_code: "0099ff", confidence: 1)
-            ],
+            colors: [.init(name: "Pink", hex_code: "ff66a3", confidence: 1)],
             items: [],
             labels: []
         )
@@ -348,8 +223,8 @@ struct TaggedItemPreviewView_Previews: PreviewProvider {
         vm.dressCode = "Black Tie"
         vm.season = "Summer"
         vm.size = "M"
-        vm.moodTags = ["Happy", "Confident"]
-        
+        vm.moodTags = ["Happy"]
+
         return TaggedItemPreviewView(
             originalImage: UIImage(systemName: "photo")!,
             taggingVM: vm,
@@ -360,5 +235,4 @@ struct TaggedItemPreviewView_Previews: PreviewProvider {
     }
 }
 #endif
-
 

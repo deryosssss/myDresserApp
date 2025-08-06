@@ -15,10 +15,10 @@ class ImageTaggingViewModel: ObservableObject {
     // MARK: — Auto-tag results
     @Published var detectedItems: [ItemDetectionResponse.DetectedItem] = []
     @Published var deepTags: DeepTaggingResponse.DataWrapper? = nil
-
+    
     @Published var isLoading = false
     @Published var errorMessage: String? = nil
-
+    
     // MARK: — Editable metadata fields
     @Published var category = ""
     @Published var subcategory = ""
@@ -35,13 +35,13 @@ class ImageTaggingViewModel: ObservableObject {
     @Published var season = ""
     @Published var size = ""
     @Published var moodTags: [String] = []
-
+    
     private let client = LykdatClient()
     private let storage = Storage.storage().reference()
     private let firestoreService = WardrobeFirestoreService()
-
+    
     // MARK: — Helpers
-
+    
     /// Clears every field (called on delete)
     func clearAll() {
         detectedItems.removeAll()
@@ -62,16 +62,16 @@ class ImageTaggingViewModel: ObservableObject {
         size = ""
         moodTags.removeAll()
     }
-
+    
     // MARK: — Auto-tagging
-
+    
     /// Sends the image off for both detection and deep tags,
     /// then seeds your editable fields.
     func autoTag(image: UIImage) {
         guard let data = image.jpegData(compressionQuality: 0.8) else { return }
         isLoading = true
         errorMessage = nil
-
+        
         client.detectItems(imageData: data) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
@@ -84,7 +84,7 @@ class ImageTaggingViewModel: ObservableObject {
                 case .failure:
                     break
                 }
-
+                
                 self?.client.deepTags(imageData: data) { deepResult in
                     DispatchQueue.main.async {
                         self?.isLoading = false
@@ -93,7 +93,7 @@ class ImageTaggingViewModel: ObservableObject {
                             self?.deepTags = tagData
                             self?.colours = tagData.colors.map { $0.name.capitalized }
                             self?.tags    = tagData.labels.map { $0.name.capitalized }
-
+                            
                             if let fashionItem = tagData.items.first {
                                 self?.category    = fashionItem.name.capitalized
                                 self?.subcategory = fashionItem.category.capitalized
@@ -118,15 +118,15 @@ class ImageTaggingViewModel: ObservableObject {
             }
         }
     }
-
+    
     // MARK: — Firebase Persistence
-
+    
     /// Uploads the image to Storage, then saves all fields + URL to Firestore via your service
     func uploadAndSave(image: UIImage) {
         guard let data = image.jpegData(compressionQuality: 0.8) else { return }
         let path = "wardrobe/\(UUID().uuidString).jpg"
         let ref  = storage.child(path)
-
+        
         isLoading = true
         ref.putData(data, metadata: nil) { [weak self] _, error in
             guard let self = self else { return }
@@ -145,38 +145,43 @@ class ImageTaggingViewModel: ObservableObject {
             }
         }
     }
-
+    
     /// Constructs a `WardrobeItem` and calls the service to save it.
     private func saveToFirestore(imageURL: String) {
+        // include `id: nil` (first parameter) and put your tag arrays
+        // in the same order as your struct declaration
         let item = WardrobeItem(
-            imageURL: imageURL,
-            category: category,
-            subcategory: subcategory,
-            colours: colours,
-            customTags: tags,
-            length: length,
-            style: style,
+            id:           nil,
+            imageURL:     imageURL,
+            category:     category,
+            subcategory:  subcategory,
+            length:       length,
+            style:        style,
             designPattern: designPattern,
-            closureType: closureType,
-            fit: fit,
-            material: material,
-            fastening: fastening,
-            dressCode: dressCode,
-            season: season,
-            size: size,
-            moodTags: moodTags,
-            addedAt: nil  // Firestore server will populate this
+            closureType:  closureType,
+            fit:          fit,
+            material:     material,
+            fastening:    fastening.isEmpty ? nil : fastening,
+            dressCode:    dressCode,
+            season:       season,
+            size:         size,
+            colours:      colours,
+            customTags:   tags,
+            moodTags:     moodTags,
+            addedAt:      nil
         )
-
+        
         isLoading = true
-        firestoreService.save(item) { [weak self] result in
+        // annotate the closure parameter so Swift knows its type
+        firestoreService.save(item) { [weak self] (result: Result<Void, Error>) in
             DispatchQueue.main.async {
-                self?.isLoading = false
+                guard let self = self else { return }
+                self.isLoading = false
                 switch result {
-                case .success():
+                case .success:
                     print("✅ Wardrobe item saved")
                 case .failure(let err):
-                    self?.errorMessage = "Save failed: \(err.localizedDescription)"
+                    self.errorMessage = "Save failed: \(err.localizedDescription)"
                 }
             }
         }
