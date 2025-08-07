@@ -1,52 +1,92 @@
 //  OutfitDetailView.swift
 //  myFinalProject
 //
-//  Created by ChatGPT on 08/06/2025.
+//  Created by Derya Baglan on 08/06/2025.
 //
 
 import SwiftUI
 
 struct OutfitDetailView: View {
+    @EnvironmentObject var vm: WardrobeViewModel
     let outfit: Outfit
+
+    @State private var showEditTags = false
+    @State private var draftTags: [String] = []
+    @State private var showDeleteAlert = false
+
+    // Adaptive columns for tags
+    private let tagColumns = [
+        GridItem(.adaptive(minimum: 80), spacing: 8)
+    ]
 
     var body: some View {
         ScrollView {
-            // Canvas
-            ZStack {
-                Color(.systemGray5)
-                LazyVGrid(
-                    columns: [GridItem(.flexible()), GridItem(.flexible())],
-                    spacing: 12
-                ) {
-                    ForEach(outfit.itemImageURLs, id: \.self) { url in
-                        AsyncImage(url: URL(string: url)) { ph in
-                            switch ph {
-                            case .empty: ProgressView().frame(height:120)
-                            case .success(let img): img.resizable().scaledToFit().frame(height:120)
-                            default: Color(.systemGray4).frame(height:120)
-                            }
+            // Canvas of outfit items
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                ForEach(outfit.itemImageURLs, id: \.self) { url in
+                    AsyncImage(url: URL(string: url)) { phase in
+                        switch phase {
+                        case .empty:
+                            ProgressView().frame(height: 180)
+                        case .success(let img):
+                            img
+                                .resizable()
+                                .scaledToFit()
+                                .frame(height: 180)
+                        default:
+                            Color(.systemGray4).frame(height: 180)
                         }
-                        .cornerRadius(8)
                     }
+                    .padding(.horizontal, 5)
                 }
-                .padding(16)
             }
-            .frame(height: 300)
-            .cornerRadius(12)
+            .padding(.horizontal, 10)
+            .padding(.vertical)
+            .padding(.top, 20)
+
+            // Favorite & Delete controls
+            HStack {
+                Spacer()
+                Button {
+                    vm.toggleFavorite(outfit)
+                } label: {
+                    Image(systemName: outfit.isFavorite ? "heart.fill" : "heart")
+                        .font(.title)
+                        .foregroundColor(.red)
+                }
+                Button(role: .destructive) {
+                    showDeleteAlert = true
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.title)
+                        .foregroundColor(.primary)
+                }
+            }
+            .padding(.vertical)
             .padding(.horizontal)
 
-            // Items
-            VStack(alignment: .leading) {
-                Text("Items").font(.headline).padding(.horizontal)
+            // Items row
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Items")
+                    .font(.headline)
+                    .padding(.horizontal)
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing:12) {
+                    HStack(spacing: 12) {
                         ForEach(outfit.itemImageURLs, id: \.self) { url in
-                            AsyncImage(url: URL(string: url)) { ph in
-                                switch ph {
-                                case .empty: ProgressView().frame(width:80,height:80)
+                            AsyncImage(url: URL(string: url)) { phase in
+                                switch phase {
+                                case .empty:
+                                    ProgressView()
+                                        .frame(width: 100, height: 120)
                                 case .success(let img):
-                                    img.resizable().scaledToFill().frame(width:80,height:80).clipped()
-                                default: Color(.systemGray4).frame(width:80,height:80)
+                                    img
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 100, height: 120)
+                                        .clipped()
+                                default:
+                                    Color(.systemGray4)
+                                        .frame(width: 100, height: 120)
                                 }
                             }
                             .cornerRadius(6)
@@ -57,95 +97,130 @@ struct OutfitDetailView: View {
             }
             .padding(.top)
 
-            // Tags
-            VStack(alignment: .leading) {
-                Text("Tags").font(.headline).padding(.horizontal)
-                FlowLayout(data: outfit.tags, spacing: 8) { tag in
-                    Text(tag.capitalized)
-                        .font(.caption2)
-                        .padding(.vertical,6)
-                        .padding(.horizontal,12)
-                        .background(Color(.systemGray5))
+            // Tags row (brandGrey, adaptive grid, removable)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Tags")
+                        .font(.headline)
+                    Spacer()
+                    Button {
+                        draftTags = outfit.tags
+                        showEditTags = true
+                    } label: {
+                        Image(systemName: "pencil")
+                            .foregroundColor(.black)
+                    }
+                }
+                .padding(.horizontal)
+
+                LazyVGrid(columns: tagColumns, spacing: 8) {
+                    ForEach(outfit.tags, id: \.self) { tag in
+                        HStack(spacing: 4) {
+                            Text(tag.capitalized)
+                                .font(.caption2)
+                                .lineLimit(1)
+                            Button {
+                                vm.removeTag(outfit, tag: tag)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 12)
+                        .background(Color.brandGrey)
                         .cornerRadius(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
                 .padding(.horizontal)
             }
-            .padding(.top)
+            .padding(.top, 4)
 
-            Spacer(minLength:40)
+            Spacer(minLength: 40)
         }
-        .navigationTitle("Outfit Detail")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-// A simple flow layout for tags
-struct FlowLayout<Data: RandomAccessCollection, Content: View>: View where Data.Element: Hashable {
-    let data: Data
-    let spacing: CGFloat
-    let content: (Data.Element) -> Content
-
-    @State private var totalHeight: CGFloat = 0
-
-    var body: some View {
-        VStack { GeometryReader { geo in generate(in: geo) } }
-        .frame(height: totalHeight)
-    }
-
-    private func generate(in g: GeometryProxy) -> some View {
-        var x: CGFloat = 0, y: CGFloat = 0
-        return ZStack(alignment: .topLeading) {
-            ForEach(Array(data), id: \.self) { item in
-                content(item)
-                    .padding(4)
-                    .alignmentGuide(.leading) { d in
-                        if x + d.width > g.size.width {
-                            x = 0
-                            y -= d.height + spacing
+        .alert("Delete this outfit?", isPresented: $showDeleteAlert) {
+            Button("Delete", role: .destructive) {
+                vm.delete(outfit)
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $showEditTags) {
+            NavigationStack {
+                Form {
+                    Section("Tags") {
+                        ForEach(Array(draftTags.enumerated()), id: \.offset) { idx, _ in
+                            HStack {
+                                TextField(
+                                    "Tag",
+                                    text: Binding(
+                                        get: { draftTags[idx] },
+                                        set: { draftTags[idx] = $0 }
+                                    )
+                                )
+                                Button(role: .destructive) {
+                                    draftTags.remove(at: idx)
+                                } label: {
+                                    Image(systemName: "minus.circle.fill")
+                                        .foregroundColor(.red)
+                                }
+                            }
                         }
-                        let result = x
-                        x += d.width + spacing
-                        return result
+                        Button {
+                            draftTags.append("")
+                        } label: {
+                            Label("Add Tag", systemImage: "plus.circle")
+                        }
                     }
-                    .alignmentGuide(.top) { _ in
-                        let result = y
-                        return result
+                }
+                .navigationTitle("Edit Tags")
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            vm.updateTags(outfit, newTags: draftTags.filter { !$0.isEmpty })
+                            showEditTags = false
+                        }
                     }
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            showEditTags = false
+                        }
+                    }
+                }
             }
         }
-        .background(GeometryReader { proxy in
-            Color.clear.preference(key: HeightKey.self, value: proxy.size.height)
-        })
-        .onPreferenceChange(HeightKey.self) { totalHeight = $0 }
     }
 }
-
-private struct HeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
-    }
-}
-
-// FlowLayout & HeightReader etc remain the same...
 
 #if DEBUG
 struct OutfitDetailView_Previews: PreviewProvider {
+    static let sample = Outfit(
+        id: "o1",
+        name: "Summer Brunch",
+        description: "Light and airy for sunny days",
+        imageURL: "https://via.placeholder.com/300/FFA500",
+        itemImageURLs: [
+            "https://via.placeholder.com/120",
+            "https://via.placeholder.com/120/ff0000",
+            "https://via.placeholder.com/120/00ff00"
+        ],
+        itemIDs: ["item1", "item2", "item3"],
+        tags: ["Summer", "Crazy", "Beautiful", "Casual", "Brunch", "Interesting"],
+        createdAt: Date(),
+        lastWorn: Calendar.current.date(byAdding: .day, value: -3, to: Date()),
+        wearCount: 4,
+        isFavorite: true,
+        source: "manual"
+    )
+
     static var previews: some View {
         NavigationStack {
-            OutfitDetailView(outfit:
-                Outfit(
-                    id: "out1", imageURL: "https://via.placeholder.com/150",
-                    itemImageURLs: [
-                        "https://via.placeholder.com/150",
-                        "https://via.placeholder.com/150/0000FF",
-                        "https://via.placeholder.com/150/FF0000",
-                        "https://via.placeholder.com/150/00FF00"
-                    ],
-                    tags: ["Summer", "Casual", "Blue"]
-                )
-            )
+            OutfitDetailView(outfit: sample)
+                .environmentObject(WardrobeViewModel())
         }
+        .previewLayout(.sizeThatFits)
+        .padding()
     }
 }
 #endif

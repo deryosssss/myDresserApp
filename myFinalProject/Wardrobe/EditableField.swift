@@ -9,27 +9,17 @@ import Foundation
 
 /// Shared enum for any view that needs to edit a single or list field.
 enum EditableField: String, CaseIterable, Identifiable, CustomStringConvertible {
-    case category
-    case subcategory
-    case length
-    case style
-    case designPattern
-    case closureType
-    case fit
-    case material
-    case dressCode
-    case season
-    case size
-    case colours
-    case customTags
-    case moodTags
+    case category, subcategory, length, style, designPattern
+    case closureType, fit, material, dressCode, season, size
+    case colours, customTags, moodTags
 
     var id: String { rawValue }
 
-    /// Human‐readable title, e.g. “Design Pattern”
+    /// Human‐readable title
     var title: String {
         rawValue
-            .replacingOccurrences(of: "([A-Z])", with: " $1", options: .regularExpression)
+            .replacingOccurrences(of: "([A-Z])", with: " $1",
+                                  options: .regularExpression)
             .capitalized
     }
 

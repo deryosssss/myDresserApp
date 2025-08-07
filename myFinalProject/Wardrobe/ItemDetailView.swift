@@ -4,7 +4,6 @@
 //  Created by Derya Baglan on 06/08/2025.
 //
 
-
 import SwiftUI
 import FirebaseFirestore
 
@@ -189,22 +188,42 @@ struct ItemDetailView: View {
     // MARK: — Outfits Tab
     private var outfitsView: some View {
         let outs = wardrobeVM.outfits(for: item)
-        guard !outs.isEmpty else { return AnyView(EmptyView()) }
-        return AnyView(
-            LazyVGrid(columns: Array(repeating: .init(.flexible()), count: 3), spacing: 8) {
-                ForEach(outs, id: \.id) { o in
-                    AsyncImage(url: URL(string: o.imageURL)) { ph in
-                        switch ph {
-                        case .empty:    ProgressView().frame(height: 100)
-                        case .success(let img): img.resizable().scaledToFill().frame(height: 100).clipped()
-                        default:        Color(.systemGray5).frame(height: 100)
+        if outs.isEmpty {
+            return AnyView(
+                Text("No outfits yet")
+                    .foregroundColor(.secondary)
+                    .padding()
+            )
+        } else {
+            return AnyView(
+                ScrollView {
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3),
+                        spacing: 8
+                    ) {
+                        ForEach(outs, id: \.id) { outfit in
+                            AsyncImage(url: URL(string: outfit.imageURL)) { phase in
+                                switch phase {
+                                case .empty:
+                                    ProgressView().frame(height: 100)
+                                case .success(let img):
+                                    img
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(height: 100)
+                                        .clipped()
+                                default:
+                                    Color(.systemGray5)
+                                        .frame(height: 100)
+                                }
+                            }
+                            .cornerRadius(6)
                         }
                     }
-                    .cornerRadius(6)
+                    .padding(.horizontal)
                 }
-            }
-            .padding(.horizontal)
-        )
+            )
+        }
     }
 
     // MARK: — Stats Tab
@@ -380,7 +399,11 @@ struct ItemDetailView_Previews: PreviewProvider {
 
     static var previews: some View {
         NavigationStack {
-            ItemDetailView(item: sample, wardrobeVM: WardrobeViewModel(), onDelete: {})
+            ItemDetailView(
+                item: sample,
+                wardrobeVM: WardrobeViewModel(),
+                onDelete: {}
+            )
         }
     }
 }

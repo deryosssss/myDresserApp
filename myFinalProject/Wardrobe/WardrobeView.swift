@@ -29,10 +29,13 @@ struct WardrobeView: View {
                 header
                 tabPicker
 
+                // only show categories when viewing items
                 if selectedTab == .items {
                     categoryScroll
-                    searchFilters
                 }
+
+                // always show search + favorites + filter
+                searchFilters
 
                 ScrollView {
                     if selectedTab == .items {
@@ -44,7 +47,9 @@ struct WardrobeView: View {
             }
             .sheet(isPresented: $showFilterSheet) {
                 WardrobeFilterView()
+                  .environmentObject(viewModel)    
             }
+
             .background(Color.white.ignoresSafeArea())
         }
     }
@@ -89,7 +94,7 @@ struct WardrobeView: View {
         .padding(.horizontal)
     }
 
-    // MARK: — Items Helpers
+    // MARK: — Category Scroll (Items only)
 
     private var categoryScroll: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -115,9 +120,16 @@ struct WardrobeView: View {
         }
     }
 
+    // MARK: — Search + Favorites + Filter (always)
+
     private var searchFilters: some View {
         HStack(spacing: 16) {
-            SearchBar(text: $searchText, placeholder: "Search items")
+            SearchBar(
+                text: $searchText,
+                placeholder: selectedTab == .items
+                    ? "Search items"
+                    : "Search outfits"
+            )
             Button { showOnlyFavorites.toggle() } label: {
                 Image(systemName: showOnlyFavorites ? "heart.fill" : "heart")
                     .foregroundColor(.red)
@@ -128,7 +140,10 @@ struct WardrobeView: View {
             }
         }
         .padding(.horizontal, 16)
+        .padding(.top, 10)
     }
+
+    // MARK: — Items Grid
 
     private var itemsGrid: some View {
         LazyVGrid(columns: columns, spacing: 16) {
@@ -160,13 +175,12 @@ struct WardrobeView: View {
     // MARK: — Outfits Grid
 
     private var outfitsGrid: some View {
-        let allOutfits = viewModel.outfitsByItem.values.flatMap { $0 }
+        // flatten and optionally filter by favorites or search if you like
+        let all = viewModel.outfitsByItem.values.flatMap { $0 }
         return LazyVGrid(columns: columns, spacing: 16) {
-            ForEach(allOutfits) { outfit in
+            ForEach(all) { outfit in
                 NavigationLink {
-                    OutfitDetailView(
-                        outfit: outfit
-                    )
+                    OutfitDetailView(outfit: outfit)
                 } label: {
                     AsyncImage(url: URL(string: outfit.imageURL)) { phase in
                         switch phase {
@@ -176,7 +190,6 @@ struct WardrobeView: View {
                         default: Color(.systemGray5).frame(height: 180)
                         }
                     }
-                    .cornerRadius(6)
                 }
                 .buttonStyle(.plain)
             }
@@ -208,6 +221,7 @@ extension WardrobeView {
     struct SearchBar: View {
         @Binding var text: String
         var placeholder: String
+
         var body: some View {
             HStack {
                 Image(systemName: "magnifyingglass")
@@ -251,12 +265,16 @@ private struct WardrobeItemCard: View {
 
 
 
+
+
 // MARK: — Preview
+
 struct WardrobeView_Previews: PreviewProvider {
     static var previews: some View {
+        // 1. Create a sample WardrobeItem
         let sampleItem = WardrobeItem(
             id: "item1",
-            imageURL: "",
+            imageURL: "https://via.placeholder.com/300",
             category: "Dress",
             subcategory: "Cocktail",
             length: "Maxi",
@@ -275,32 +293,56 @@ struct WardrobeView_Previews: PreviewProvider {
             addedAt: Date(),
             lastWorn: nil
         )
+
+        // 2. Create and configure the view model
         let vm = WardrobeViewModel()
         vm.items = [sampleItem]
 
-        // Add two outfits for preview
-                let outfit1 = Outfit(
-                   id: "o1",
-                   imageURL: "https://via.placeholder.com/100",
-                    itemImageURLs: [
-                        "https://via.placeholder.com/80",
-                        "https://via.placeholder.com/80/ff0000"
+        // 3. Two sample outfits using the new model
+        let outfit1 = Outfit(
+            id: "o1",
+            name: "Summer Brunch",
+            description: "Light and airy for sunny days",
+            imageURL: "https://via.placeholder.com/300/FFA500",
+            itemImageURLs: [
+                        "https://via.placeholder.com/120",
+                        "https://via.placeholder.com/120/ff0000",
+                        "https://via.placeholder.com/120/00ff00"
                     ],
-                    tags: ["Casual", "Summer"]
-                )
-               let outfit2 = Outfit(
-                    id: "o2",
-                   imageURL: "https://via.placeholder.com/100/0000FF",
-                   itemImageURLs: [
-                        "https://via.placeholder.com/80/0000FF",
-                        "https://via.placeholder.com/80/00FF00"
-                    ],
-                   tags: ["Sporty"]
-            )
-                vm.setOutfits([outfit1, outfit2], for: sampleItem)
+            itemIDs: ["item1", "item2", "item3"],
+            tags: ["summer", "brunch", "casual"],
+            createdAt: Date(),
+            lastWorn: Calendar.current.date(byAdding: .day, value: -3, to: Date()),
+            wearCount: 4,
+            isFavorite: true,
+            source: "manual"
+        )
 
+        let outfit2 = Outfit(
+            id: "o2",
+            name: "Office Chic",
+            description: "Smart layering for work",
+            imageURL: "https://via.placeholder.com/300/0000FF",
+            itemImageURLs: [
+                        "https://via.placeholder.com/120",
+                        "https://via.placeholder.com/120/ff0000",
+                        "https://via.placeholder.com/120/00ff00"
+                    ],
+            itemIDs: ["item1", "item4"],
+            tags: ["office", "formal"],
+            createdAt: Calendar.current.date(byAdding: .weekOfYear, value: -2, to: Date()),
+            lastWorn: Calendar.current.date(byAdding: .day, value: -10, to: Date()),
+            wearCount: 2,
+            isFavorite: false,
+            source: "ai"
+        )
+        // 4. Associate them with the sample item
+        vm.setOutfits([outfit1, outfit2], for: sampleItem)
+
+        // 5. Return the preview
         return WardrobeView(viewModel: vm)
             .previewDevice("iPhone 14 Pro")
+            .previewDisplayName("WardrobeView – Sample Outfits")
     }
 }
 

@@ -1,8 +1,7 @@
+// EditSheet.swift
+// myFinalProject
 //
-//  EditSheet.swift
-//  myFinalProject
-//
-//  Created by Derya Baglan on 06/08/2025.
+// Created by Derya Baglan on 06/08/2025.
 //
 
 import SwiftUI
@@ -36,25 +35,21 @@ struct EditSheet: View {
 
     @ViewBuilder
     private var content: some View {
-        if isListField {
+        if [.colours, .customTags, .moodTags].contains(field) {
             ListFieldEditor(
-                field:      field,
-                items:      listReadBindings[field]?() ?? [],
-                draftText:  $draftText,
-                onAdd:      { listAddBindings[field]?($0) },
-                onRemove:   { listRemoveBindings[field]?($0) }
+                field:     field,
+                items:     listReadBindings[field]?() ?? [],
+                draftText: $draftText,
+                onAdd:     { listAddBindings[field]?($0) },
+                onRemove:  { listRemoveBindings[field]?($0) }
             )
         } else {
             SingleFieldEditor(field: field, draftText: $draftText)
         }
     }
 
-    private var isListField: Bool {
-        [.colours, .customTags, .moodTags].contains(field)
-    }
-
     private func commit() {
-        guard !isListField else { return }
+        guard ![.colours, .customTags, .moodTags].contains(field) else { return }
         singleBindings[field]?(draftText)
     }
 }

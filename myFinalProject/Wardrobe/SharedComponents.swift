@@ -1,7 +1,7 @@
 // SharedComponents.swift
-//  myFinalProject
+// myFinalProject
 //
-//  Created by Derya Baglan on 06/08/2025.
+// Created by Derya Baglan on 06/08/2025.
 //
 
 import SwiftUI
@@ -18,7 +18,8 @@ struct TinyEditButton: View {
         }
         .background(Color.white)
         .cornerRadius(6)
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.blue, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.blue, lineWidth: 1))
     }
 }
 
