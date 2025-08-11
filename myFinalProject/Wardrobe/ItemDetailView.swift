@@ -3,6 +3,7 @@
 //
 //  Created by Derya Baglan on 06/08/2025.
 //
+//
 
 import SwiftUI
 import FirebaseFirestore
@@ -19,6 +20,10 @@ struct ItemDetailView: View {
     @State private var draftWornDate = Date()
     @State private var draftText = ""
     @State private var showDeleteAlert = false
+
+    // unified sizes
+    private let bubbleSize: CGFloat = 56
+    private let iconSize: CGFloat = 22
 
     enum Tab: String, CaseIterable {
         case about   = "About"
@@ -53,9 +58,9 @@ struct ItemDetailView: View {
         }
         .confirmationDialog("Options", isPresented: $showMenu, titleVisibility: .visible) {
             Button("Create outfit manually") { /* TODO */ }
-            Button("Create outfit with AI")     { /* TODO */ }
-            Button("Replace photo")            { /* TODO */ }
-            Button("Cancel", role: .cancel)     { }
+            Button("Create outfit with AI")  { /* TODO */ }
+            Button("Replace photo")          { /* TODO */ }
+            Button("Cancel", role: .cancel)  { }
         }
         .alert("Are you sure you want to delete this item?", isPresented: $showDeleteAlert) {
             Button("Delete", role: .destructive) {
@@ -70,45 +75,64 @@ struct ItemDetailView: View {
     // MARK: — Top Image + Controls
     private var imageSection: some View {
         ZStack(alignment: .bottom) {
-            Color(.systemGray5)
+            Color.white
                 .overlay(
                     AsyncImage(url: URL(string: item.imageURL)) { ph in
                         switch ph {
                         case .empty:    ProgressView()
-                        case .success(let img): img.resizable().scaledToFit()
-                        default:        Color(.systemGray5)
+                        case .success(let img):
+                            img.resizable().scaledToFit()
+                        default:        Color.white
                         }
                     }
                 )
                 .frame(height: 300)
 
             HStack {
+                // Sandwich: brand yellow bubble, fixed size, thin outline
                 Button { showMenu.toggle() } label: {
-                    Image(systemName: "line.horizontal.3")
-                        .font(.title2)
-                        .padding()
-                        .background(.white)
-                        .clipShape(Circle())
-                        .foregroundColor(.black)
+                    ZStack {
+                        Circle()
+                            .fill(Color.brandYellow.opacity(0.25))
+                        Circle()
+                            .stroke(Color.black, lineWidth: 1)
+                        Image(systemName: "line.horizontal.3")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: iconSize, height: iconSize)
+                            .foregroundColor(.black)
+                    }
+                    .frame(width: bubbleSize, height: bubbleSize)
                 }
+
                 Spacer()
+
+                // Heart: light blue bubble, fixed size, thin outline
                 Button {
-                    withAnimation(.spring()) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                         wardrobeVM.toggleFavorite(item)
                     }
                 } label: {
-                    Image(systemName: wardrobeVM.isFavorite(item) ? "heart.fill" : "heart")
-                        .font(.title2)
-                        .foregroundColor(wardrobeVM.isFavorite(item) ? .red : .black)
-                        .scaleEffect(wardrobeVM.isFavorite(item) ? 1.2 : 1.0)
-                        .padding()
-                        .background(.white)
-                        .clipShape(Circle())
+                    ZStack {
+                        Circle()
+                            .fill(Color.blue.opacity(0.15))
+                        Circle()
+                            .stroke(Color.black, lineWidth: 1)
+                        // animate only the icon, not the bubble size
+                        Image(systemName: wardrobeVM.isFavorite(item) ? "heart.fill" : "heart")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: iconSize, height: iconSize)
+                            .foregroundColor(wardrobeVM.isFavorite(item) ? .red : .black)
+                            .scaleEffect(wardrobeVM.isFavorite(item) ? 1.15 : 1.0)
+                    }
+                    .frame(width: bubbleSize, height: bubbleSize)
                 }
             }
             .padding(.horizontal, 24)
             .offset(y: -24)
         }
+        .background(Color.white)
     }
 
     // MARK: — Tab Picker
@@ -177,7 +201,7 @@ struct ItemDetailView: View {
             chipRow("Dress Code",     item.dressCode,    .dressCode)
             chipRow("Season",         item.season,       .season)
             chipRow("Size",           item.size,         .size)
-            chipSection("Mood Tags",   item.moodTags,     .moodTags)
+            chipSection("Mood Tags",  item.moodTags,     .moodTags)
         }
         .padding(.vertical)
         .background(Color.white)
@@ -372,39 +396,3 @@ struct ItemDetailView: View {
         ]
     }
 }
-
-#if DEBUG
-struct ItemDetailView_Previews: PreviewProvider {
-    static let sample = WardrobeItem(
-        id: nil,
-        imageURL: "",
-        category: "Dress",
-        subcategory: "Cocktail",
-        length: "Maxi",
-        style: "Elegant",
-        designPattern: "Plain",
-        closureType: "Zipper",
-        fit: "Regular",
-        material: "Silk",
-        fastening: "None",
-        dressCode: "Black Tie",
-        season: "Summer",
-        size: "M",
-        colours: ["ff66a3","0099ff"],
-        customTags: ["Party","Formal"],
-        moodTags: ["Happy","Confident"],
-        addedAt: Date(),
-        lastWorn: nil
-    )
-
-    static var previews: some View {
-        NavigationStack {
-            ItemDetailView(
-                item: sample,
-                wardrobeVM: WardrobeViewModel(),
-                onDelete: {}
-            )
-        }
-    }
-}
-#endif

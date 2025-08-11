@@ -7,7 +7,7 @@
 import SwiftUI
 import UIKit
 
-// MARK: — Color Helpers
+// MARK: - Color Helpers
 
 extension Color {
     init?(hex: String) {
@@ -55,7 +55,6 @@ struct TaggedItemPreviewView: View {
                     .cornerRadius(12)
                     .padding(.horizontal)
 
-                // Colours inline
                 if let cols = taggingVM.deepTags?.colors, !cols.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Colours").bold().padding(.horizontal)
@@ -78,24 +77,62 @@ struct TaggedItemPreviewView: View {
                     }
                 }
 
-                // Single‐value chips
                 ChipRowView(title: "Category",      text: taggingVM.category)     { startEditing(.category) }
                 ChipRowView(title: "Sub Category",  text: taggingVM.subcategory)  { startEditing(.subcategory) }
                 ChipRowView(title: "Length",        text: taggingVM.length)       { startEditing(.length) }
                 ChipRowView(title: "Style",         text: taggingVM.style)        { startEditing(.style) }
                 ChipRowView(title: "Design / Pattern", text: taggingVM.designPattern) { startEditing(.designPattern) }
-                ChipRowView(title: "Closure",       text: taggingVM.closureType) { startEditing(.closureType) }
+                ChipRowView(title: "Closure",       text: taggingVM.closureType)  { startEditing(.closureType) }
                 ChipRowView(title: "Fit",           text: taggingVM.fit)          { startEditing(.fit) }
                 ChipRowView(title: "Material",      text: taggingVM.material)     { startEditing(.material) }
 
-                // List‐value chips
                 ChipSectionView(title: "Custom Tags", chips: taggingVM.tags) { startEditing(.customTags) }
                 ChipRowView(title: "Dress Code",     text: taggingVM.dressCode)   { startEditing(.dressCode) }
                 ChipRowView(title: "Season",         text: taggingVM.season)      { startEditing(.season) }
                 ChipRowView(title: "Size",           text: taggingVM.size)        { startEditing(.size) }
                 ChipSectionView(title: "Mood Tags",  chips: taggingVM.moodTags)   { startEditing(.moodTags) }
 
-                // Actions
+                // MARK: — NEW: Small section for Source / Gender / Favorite (minimal UI change)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("More").bold().padding(.horizontal)
+
+                    // Source type
+                    HStack {
+                        Text("Source").font(.subheadline)
+                        Spacer()
+                        Picker("", selection: $taggingVM.sourceType) {
+                            Text("Camera").tag(WardrobeItem.SourceType.camera)
+                            Text("Gallery").tag(WardrobeItem.SourceType.gallery)
+                            Text("Web").tag(WardrobeItem.SourceType.web)
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(maxWidth: 260)
+                    }
+                    .padding(.horizontal)
+
+                    // Gender
+                    HStack {
+                        Text("Gender").font(.subheadline)
+                        Spacer()
+                        Picker("", selection: $taggingVM.gender) {
+                            Text("Woman").tag("Woman")
+                            Text("Man").tag("Man")
+                            Text("Unisex").tag("Unisex")
+                            Text("Other").tag("Other")
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(maxWidth: 320)
+                    }
+                    .padding(.horizontal)
+
+                    // Favorite toggle
+                    Toggle(isOn: $taggingVM.isFavorite) {
+                        Text("Mark as Favorite")
+                    }
+                    .padding(.horizontal)
+                }
+                .padding(.top, 4)
+
                 HStack(spacing: 12) {
                     Button("Delete") {
                         taggingVM.clearAll()
@@ -139,7 +176,7 @@ struct TaggedItemPreviewView: View {
         }
     }
 
-    // MARK: — Bindings & Editing
+    // MARK: - Bindings & Editing
 
     private func startEditing(_ field: EditableField) {
         switch field {
@@ -201,38 +238,3 @@ struct TaggedItemPreviewView: View {
         ]
     }
 }
-
-#if DEBUG
-struct TaggedItemPreviewView_Previews: PreviewProvider {
-    static var previews: some View {
-        let vm = ImageTaggingViewModel()
-        vm.category = "Dress"
-        vm.subcategory = "Evening"
-        vm.deepTags = DeepTaggingResponse.DataWrapper(
-            colors: [.init(name: "Pink", hex_code: "ff66a3", confidence: 1)],
-            items: [],
-            labels: []
-        )
-        vm.length = "Maxi"
-        vm.style = "Elegant"
-        vm.designPattern = "Plain"
-        vm.closureType = "Zipper"
-        vm.fit = "Regular"
-        vm.material = "Silk"
-        vm.tags = ["Party", "Formal"]
-        vm.dressCode = "Black Tie"
-        vm.season = "Summer"
-        vm.size = "M"
-        vm.moodTags = ["Happy"]
-
-        return TaggedItemPreviewView(
-            originalImage: UIImage(systemName: "photo")!,
-            taggingVM: vm,
-            onDismiss: {}
-        )
-        .previewLayout(.sizeThatFits)
-        .padding()
-    }
-}
-#endif
-

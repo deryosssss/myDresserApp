@@ -33,7 +33,7 @@ final class AccountDetailsViewModel: ObservableObject {
 
   private var original: UserProfile?
   private let db = Firestore.firestore()
-  private let storage = Storage.storage().reference()
+  private let storage = StorageBucket.instance.reference()
   private var listener: ListenerRegistration?
 
   var hasChanges: Bool {

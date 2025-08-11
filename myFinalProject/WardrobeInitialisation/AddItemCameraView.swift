@@ -225,33 +225,4 @@ struct CameraImagePicker: UIViewControllerRepresentable {
 }
 
 
-// … all of your AddItemCameraView code above …
-
-// MARK: — Previews
-
-#if DEBUG
-struct AddItemCameraView_Previews: PreviewProvider {
-    static var previews: some View {
-        Group {
-            // Library tab preview
-            AddItemCameraView()
-                .previewDisplayName("Library")
-            // Web tab preview
-            AddItemCameraView()
-                .onAppear {
-                    // force the preview into the Web tab
-                    // Note: this only works in SwiftUI previews
-                    // because @State is mutated before body
-                    DispatchQueue.main.async {
-                        // hack: set the selectedTab to .web
-                        Mirror(reflecting: AddItemCameraView().self)
-                    }
-                }
-                .previewDisplayName("Web")
-        }
-        .previewDevice("iPhone 16 Pro")
-    }
-}
-#endif
-
 

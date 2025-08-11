@@ -5,88 +5,119 @@
 //  Created by Derya Baglan on 01/08/2025.
 //
 
+
+import Foundation
+import FirebaseAuth
 import FirebaseFirestore
-import FirebaseCore
 
-class WardrobeFirestoreService: WardrobeDataService {
-    private let collectionName = "wardrobeItems"
+private enum WardrobeServiceError: Error { case notSignedIn }
 
-    private var db: Firestore {
-        if FirebaseApp.app() == nil {
-            FirebaseApp.configure()
-        }
-        return Firestore.firestore()
+/// No-op listener so we can return something when not signed in.
+/// Must inherit from NSObject because ListenerRegistration is @objc.
+private final class NoopListener: NSObject, ListenerRegistration {
+    func remove() {}
+}
+
+final class WardrobeFirestoreService: WardrobeDataService {
+    private let db = Firestore.firestore()
+
+    // users/{uid}/items
+    private func userItemsCollection() throws -> CollectionReference {
+        guard let uid = Auth.auth().currentUser?.uid else { throw WardrobeServiceError.notSignedIn }
+        return db.collection("users").document(uid).collection("items")
     }
 
-    // MARK: — Listen
-    func listen(
-        _ callback: @escaping (Result<[WardrobeItem], Error>) -> Void
-    ) -> ListenerRegistration {
-        return db
-            .collection(collectionName)
+    private func map(_ data: [String: Any], docId: String) -> WardrobeItem {
+        let sourceStr = (data["sourceType"] as? String)?.lowercased() ?? WardrobeItem.SourceType.gallery.rawValue
+        let src = WardrobeItem.SourceType(rawValue: sourceStr) ?? .gallery
+
+        return WardrobeItem(
+            id: data["id"] as? String ?? docId,
+            userId: data["userId"] as? String ?? "",
+            imageURL: data["imageURL"] as? String ?? "",
+            imagePath: data["imagePath"] as? String,
+            category: data["category"] as? String ?? "",
+            subcategory: data["subcategory"] as? String ?? "",
+            length: data["length"] as? String ?? "",
+            style: data["style"] as? String ?? "",
+            designPattern: data["designPattern"] as? String ?? "",
+            closureType: data["closureType"] as? String ?? "",
+            fit: data["fit"] as? String ?? "",
+            material: data["material"] as? String ?? "",
+            fastening: data["fastening"] as? String,
+            dressCode: data["dressCode"] as? String ?? "",
+            season: data["season"] as? String ?? "",
+            size: data["size"] as? String ?? "",
+            colours: data["colours"] as? [String] ?? [],
+            customTags: data["customTags"] as? [String] ?? [],
+            moodTags: data["moodTags"] as? [String] ?? [],
+            isFavorite: data["isFavorite"] as? Bool ?? false,     // NEW
+            sourceType: src,                                       // NEW
+            gender: data["gender"] as? String ?? "",               // NEW
+            addedAt: (data["addedAt"] as? Timestamp)?.dateValue(),
+            lastWorn: (data["lastWorn"] as? Timestamp)?.dateValue()
+        )
+    }
+
+    // MARK: - WardrobeDataService
+
+    func listen(_ callback: @escaping (Result<[WardrobeItem], Error>) -> Void) -> ListenerRegistration {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            callback(.success([]))
+            return NoopListener()
+        }
+        let q = db.collection("users")
+            .document(uid)
+            .collection("items")
             .order(by: "addedAt", descending: true)
-            .addSnapshotListener { snapshot, error in
-                if let err = error {
-                    callback(.failure(err))
-                    return
-                }
-                guard let docs = snapshot?.documents else {
-                    callback(.success([]))
-                    return
-                }
-                do {
-                    let items = try docs.compactMap { doc in
-                        try doc.data(as: WardrobeItem.self)
-                    }
-                    callback(.success(items))
-                } catch {
-                    callback(.failure(error))
-                }
+
+        return q.addSnapshotListener { snapshot, error in
+            if let error = error {
+                callback(.failure(error)); return
             }
+            let items = snapshot?.documents.map { self.map($0.data(), docId: $0.documentID) } ?? []
+            callback(.success(items))
+        }
     }
 
-    // MARK: — Save (New)
     func save(_ item: WardrobeItem, completion: @escaping (Result<Void, Error>) -> Void) {
-        var data = item.dictionary
-        // clear out server timestamps so Firestore can populate them
-        data["addedAt"] = FieldValue.serverTimestamp()
-        data["lastWorn"] = item.lastWorn != nil
-            ? Timestamp(date: item.lastWorn!)
-            : FieldValue.delete()
-        db.collection(collectionName)
-          .addDocument(data: data) { error in
-            if let err = error {
-                completion(.failure(err))
-            } else {
-                completion(.success(()))
+        do {
+            let col = try userItemsCollection()
+            let ref = col.document()
+            var data = item.toFirestoreData()
+            data["id"] = ref.documentID
+            data["userId"] = Auth.auth().currentUser?.uid ?? ""
+            ref.setData(data) { error in
+                error == nil ? completion(.success(())) : completion(.failure(error!))
             }
+        } catch {
+            completion(.failure(error))
         }
     }
 
-    // MARK: — Delete
     func deleteItem(_ id: String) {
-        db.collection(collectionName).document(id).delete { error in
-            if let err = error {
-                print("❌ Error deleting item:", err)
-            }
-        }
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        db.collection("users").document(uid).collection("items").document(id).delete()
     }
 
-    // MARK: — Update
     func updateItem(_ id: String, data: [String: Any]) {
-        db.collection(collectionName).document(id).updateData(data) { error in
-            if let err = error {
-                print("❌ Error updating item:", err)
-            }
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        db.collection("users").document(uid).collection("items").document(id).updateData(data)
+    }
+
+    func fetchMine(completion: @escaping (Result<[WardrobeItem], Error>) -> Void) {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            completion(.success([])); return
         }
+        db.collection("users")
+            .document(uid)
+            .collection("items")
+            .order(by: "addedAt", descending: true)
+            .getDocuments { snap, err in
+                if let err = err { completion(.failure(err)); return }
+                let items = snap?.documents.map { self.map($0.data(), docId: $0.documentID) } ?? []
+                completion(.success(items))
+            }
     }
 }
 
-extension Encodable {
-    var dictionary: [String:Any] {
-        (try? JSONSerialization.jsonObject(
-            with: JSONEncoder().encode(self),
-            options: .allowFragments
-        )) as? [String:Any] ?? [:]
-    }
-}

@@ -4,19 +4,23 @@
 //
 //  Created by Derya Baglan on 30/07/2025.
 //
+
 import SwiftUI
 
-
 struct ProfileView: View {
+    // Keep your default placeholders but show VM data if present
     var username: String = "Username"
     var email: String = "Email"
     var joinDate: String = "Join Date"
     var profileImage: UIImage? = nil
 
+    @StateObject private var vm = ProfileViewModel()
+
     var body: some View {
         NavigationStack {
             ZStack {
                 Color.white.ignoresSafeArea()
+
                 VStack(spacing: 0) {
                     // Header Card
                     ZStack(alignment: .topLeading) {
@@ -29,19 +33,18 @@ struct ProfileView: View {
                                 ]),
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
-                            )
-                        )
+                            ))
                             .frame(height: 130)
                             .padding(.top, 140)
                             .padding(.horizontal, 20)
                             .padding(.bottom, 60)
 
-                        // Profile image
+                        // Profile image (use VM image if available, else the prop)
                         Circle()
                             .stroke(Color.white, lineWidth: 3)
                             .background(
                                 Group {
-                                    if let img = profileImage {
+                                    if let img = vm.profileImage ?? profileImage {
                                         Image(uiImage: img)
                                             .resizable()
                                             .scaledToFill()
@@ -62,13 +65,13 @@ struct ProfileView: View {
                             .shadow(radius: 2)
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(username)
+                            Text((vm.username.isEmpty ? username : vm.username))
                                 .font(AppFont.spicyRice(size: 28))
                                 .foregroundColor(.black)
-                            Text(email)
+                            Text((vm.email.isEmpty ? email : vm.email))
                                 .font(AppFont.agdasima(size: 15))
                                 .foregroundColor(.black)
-                            Text(joinDate)
+                            Text((vm.joinDate.isEmpty ? joinDate : vm.joinDate))
                                 .font(AppFont.agdasima(size: 15))
                                 .foregroundColor(.black)
                         }
@@ -100,15 +103,15 @@ struct ProfileView: View {
                     .padding(.top, 10)
 
                     // Log out
-                    Button(action: { }) {
-                        Text("Log Out")
+                    Button(action: { vm.signOut() }) {
+                        Text(vm.isWorking ? "Working..." : "Log Out")
                             .font(AppFont.agdasima(size: 20))
                             .foregroundColor(.red)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 13)
                             .background(Color(.systemGray6))
-                            
                     }
+                    .disabled(vm.isWorking)
                     .padding(.top, 20)
                     .padding(.horizontal, 16)
 
@@ -116,7 +119,7 @@ struct ProfileView: View {
 
                     // Bottom row
                     HStack(spacing: 18) {
-                        Button(action: { }) {
+                        Button(action: { /* Help */ }) {
                             HStack(spacing: 5) {
                                 Image(systemName: "questionmark.circle")
                                 Text("Help")
@@ -126,17 +129,16 @@ struct ProfileView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 13)
                             .background(Color(.systemGray6))
-                            
                         }
-                        Button(action: { }) {
+                        Button(action: { vm.requestDeleteAccount() }) {
                             Text("Delete Account")
                                 .font(AppFont.agdasima(size: 20))
                                 .foregroundColor(.red)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 13)
                                 .background(Color.red.opacity(0.18))
-                                
                         }
+                        .disabled(vm.isWorking)
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 20)
@@ -144,6 +146,61 @@ struct ProfileView: View {
                 .padding(.top, 20)
             }
             .navigationBarHidden(true)
+        }
+        // Error alert
+        .alert("Error", isPresented: $vm.showError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(vm.errorMessage)
+        }
+        // Confirm delete
+        .alert("Delete Account?", isPresented: $vm.showDeleteConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) { vm.confirmDeleteAccount() }
+        } message: {
+            Text("This will permanently remove your account, wardrobe items, and images.")
+        }
+        // Re-auth sheet
+        .sheet(isPresented: $vm.showReauthSheet) {
+            ReauthView(
+                email: $vm.reauthEmail,
+                password: $vm.reauthPassword,
+                isWorking: vm.isWorking,
+                onCancel: { vm.showReauthSheet = false },
+                onConfirm: { vm.performReauthAndDelete() }
+            )
+            .presentationDetents([.height(260)])
+        }
+    }
+}
+
+private struct ReauthView: View {
+    @Binding var email: String
+    @Binding var password: String
+    var isWorking: Bool
+    var onCancel: () -> Void
+    var onConfirm: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Re-authenticate") {
+                    TextField("Email", text: $email)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled(true)
+                    SecureField("Password", text: $password)
+                }
+            }
+            .navigationTitle("Confirm Identity")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(isWorking ? "Working…" : "Confirm", action: onConfirm)
+                        .disabled(isWorking || email.isEmpty || password.isEmpty)
+                }
+            }
         }
     }
 }

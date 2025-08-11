@@ -4,15 +4,17 @@
 //
 //  Created by Derya Baglan on 30/07/2025.
 //
-
+//
 import Foundation
 import SwiftUI
 import FirebaseAuth
+import FirebaseCore
 import FirebaseFirestore
 import FirebaseStorage
 
-class ProfileSetupViewModel: ObservableObject {
-    // User input
+@MainActor
+final class ProfileSetupViewModel: ObservableObject {
+    // MARK: - User input
     @Published var firstName = ""
     @Published var lastName = ""
     @Published var userName = ""
@@ -20,7 +22,7 @@ class ProfileSetupViewModel: ObservableObject {
     @Published var genderPresentation = ""
     @Published var profileImage: UIImage? = nil
 
-    // UI state
+    // MARK: - UI state
     @Published var showImagePicker = false
     @Published var showDatePicker = false
     @Published var showGenderPicker = false
@@ -30,121 +32,131 @@ class ProfileSetupViewModel: ObservableObject {
     @Published var showSuccess = false
     @Published var goToShoppingHabits = false
 
-    let genderOptions = [
-        "Woman",
-        "Man",
-        "Non-binary",
-        "Transgender",
-        "Prefer not to say",
-        "Other"
-    ]
+    let genderOptions = ["Woman","Man","Non-binary","Transgender","Prefer not to say","Other"]
 
     var canContinue: Bool {
-        !firstName.isEmpty && !userName.isEmpty && !genderPresentation.isEmpty && dob < Date()
+        !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !genderPresentation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        dob < Date()
     }
 
     var dobString: String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter.string(from: dob)
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        return f.string(from: dob)
     }
 
-    var isOver18: Bool {
-        let calendar = Calendar.current
-        let now = Date()
-        let ageComponents = calendar.dateComponents([.year], from: dob, to: now)
-        if let age = ageComponents.year, age >= 18 {
-            return true
-        }
-        return false
+    private var isOver18: Bool {
+        (Calendar.current.dateComponents([.year], from: dob, to: Date()).year ?? 0) >= 18
     }
 
     func continueTapped() {
         errorMessage = ""
-        if !isOver18 {
-            errorMessage = "You must be at least 18 years old to use this app."
-            return
-        }
-        if showSuccess {
-            goToShoppingHabits = true
-        } else {
-            saveProfile()
-        }
+        guard isOver18 else { errorMessage = "You must be at least 18 years old to use this app."; return }
+        if showSuccess { goToShoppingHabits = true } else { saveProfile() }
     }
 
-    // MARK: - Save Data
+    // MARK: - Save flow
     func saveProfile() {
-        errorMessage = ""
-        showSuccess = false
-        isSaving = true
+        errorMessage = ""; showSuccess = false; isSaving = true
 
         guard let user = Auth.auth().currentUser else {
             errorMessage = "Not authenticated. Please sign in again."
-            isSaving = false
-            return
+            isSaving = false; return
         }
 
-        // If the user picked an image, upload it first
-        if let img = profileImage, let imgData = img.jpegData(compressionQuality: 0.7) {
-            let storageRef = Storage.storage().reference()
-                .child("profile_images/\(user.uid).jpg")
-            storageRef.putData(imgData, metadata: nil) { [weak self] metadata, error in
+        if let img = profileImage {
+            uploadProfileImage(img, for: user) { [weak self] result in
                 guard let self = self else { return }
-                if let error = error {
-                    DispatchQueue.main.async {
-                        self.errorMessage = "Image upload failed: \(error.localizedDescription)"
-                        self.isSaving = false
-                    }
-                    return
-                }
-                // Get download URL
-                storageRef.downloadURL { url, error in
-                    if let error = error {
-                        DispatchQueue.main.async {
-                            self.errorMessage = "Image URL failed: \(error.localizedDescription)"
-                            self.isSaving = false
-                        }
-                        return
-                    }
-                    self.saveProfileDocument(imageURL: url?.absoluteString)
+                switch result {
+                case .success(let uploaded):
+                    self.saveProfileDocument(imageURL: uploaded?.url, imagePath: uploaded?.path)
+                case .failure(let err):
+                    self.errorMessage = "Image upload failed: \(err.localizedDescription)"
+                    self.isSaving = false
                 }
             }
         } else {
-            // No image selected
-            saveProfileDocument(imageURL: nil)
+            saveProfileDocument(imageURL: nil, imagePath: nil)
         }
     }
 
-    func saveProfileDocument(imageURL: String?) {
+    // MARK: - Storage
+    private struct Uploaded { let url: String; let path: String }
+
+    private func uploadProfileImage(
+        _ image: UIImage,
+        for user: User,
+        completion: @escaping (Result<Uploaded?, Error>) -> Void
+    ) {
+        let resized = imageByScaling(image, maxDimension: 1080)
+        guard var data = resized.jpegData(compressionQuality: 0.85) else {
+            completion(.success(nil)); return
+        }
+        let tenMB = 10 * 1024 * 1024
+        var q: CGFloat = 0.8
+        while data.count > tenMB, q > 0.3 {
+            q -= 0.1
+            if let d = resized.jpegData(compressionQuality: q) { data = d } else { break }
+        }
+
+        let path = "profile_images/\(user.uid)/profile.jpg"        // matches Storage rules
+        let ref = StorageBucket.instance.reference(withPath: path) // <-- centralized bucket
+
+        let meta = StorageMetadata()
+        meta.contentType = "image/jpeg"
+
+        ref.putData(data, metadata: meta) { _, error in
+            if let error = error { completion(.failure(error)); return }
+            ref.downloadURL { url, err in
+                if let err = err { completion(.failure(err)) }
+                else if let url = url { completion(.success(Uploaded(url: url.absoluteString, path: path))) }
+                else { completion(.success(nil)) }
+            }
+        }
+    }
+
+    // MARK: - Firestore
+    private func saveProfileDocument(imageURL: String?, imagePath: String?) {
         guard let user = Auth.auth().currentUser else {
             self.errorMessage = "Session expired. Please sign in again."
-            self.isSaving = false
-            return
+            self.isSaving = false; return
         }
+
         let db = Firestore.firestore()
-        let userDoc: [String: Any] = [
-            "firstName": firstName,
-            "lastName": lastName,
-            "userName": userName,
+        var doc: [String: Any] = [
+            "firstName": firstName.trimmingCharacters(in: .whitespacesAndNewlines),
+            "lastName": lastName.trimmingCharacters(in: .whitespacesAndNewlines),
+            "userName": userName.trimmingCharacters(in: .whitespacesAndNewlines),
             "dob": Timestamp(date: dob),
             "genderPresentation": genderPresentation,
-            "profileImageURL": imageURL ?? "",
             "email": user.email ?? "",
             "uid": user.uid,
             "createdAt": FieldValue.serverTimestamp()
         ]
-        db.collection("users").document(user.uid).setData(userDoc, merge: true) { [weak self] err in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                self.isSaving = false
-                if let err = err {
-                    self.errorMessage = "Could not save profile: \(err.localizedDescription)"
-                } else {
-                    self.errorMessage = ""
-                    self.showSuccess = true
-                    self.goToShoppingHabits = true
-                }
-            }
+        if let imageURL  { doc["profileImageURL"]  = imageURL  }
+        if let imagePath { doc["profileImagePath"] = imagePath }
+
+        db.collection("users").document(user.uid).setData(doc, merge: true) { [weak self] err in
+            guard let self = self else { return }
+            self.isSaving = false
+            if let err = err { self.errorMessage = "Could not save profile: \(err.localizedDescription)" }
+            else { self.errorMessage = ""; self.showSuccess = true; self.goToShoppingHabits = true }
         }
     }
+}
+
+// MARK: - Image utilities
+private func imageByScaling(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
+    let size = image.size
+    let maxSide = max(size.width, size.height)
+    guard maxSide > maxDimension else { return image }
+    let scale = maxDimension / maxSide
+    let newSize = CGSize(width: size.width * scale, height: size.height * scale)
+    UIGraphicsBeginImageContextWithOptions(newSize, true, 1.0)
+    image.draw(in: CGRect(origin: .zero, size: newSize))
+    let img = UIGraphicsGetImageFromCurrentImageContext() ?? image
+    UIGraphicsEndImageContext()
+    return img
 }

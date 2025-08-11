@@ -242,32 +242,3 @@ struct WardrobeFilterView: View {
     }
 }
 
-#if DEBUG
-struct WardrobeFilterView_Previews: PreviewProvider {
-    static var previews: some View {
-        let vm = WardrobeViewModel()
-        vm.items = [
-            WardrobeItem(
-                id: "1", imageURL: "",
-                category: "Dress", subcategory: "Maxi", length: "Long",
-                style: "Casual", designPattern: "Floral", closureType: "Zipper",
-                fit: "Slim", material: "Silk", fastening: nil,
-                dressCode: "Formal", season: "Summer", size: "M",
-                colours: ["Red", "Maroon"], customTags: ["Party"], moodTags: ["Happy"],
-                addedAt: Date(), lastWorn: nil
-            ),
-            WardrobeItem(
-                id: "2", imageURL: "",
-                category: "Top", subcategory: "T-shirt", length: "Short",
-                style: "Sport", designPattern: "Striped", closureType: "None",
-                fit: "Regular", material: "Cotton", fastening: nil,
-                dressCode: "Casual", season: "Spring", size: "S",
-                colours: ["White", "Black"], customTags: ["Travel"], moodTags: ["Energetic"],
-                addedAt: Date(), lastWorn: nil
-            )
-        ]
-        return WardrobeFilterView()
-            .environmentObject(vm)
-    }
-}
-#endif

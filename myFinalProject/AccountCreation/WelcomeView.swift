@@ -7,6 +7,7 @@
 import SwiftUI
 
 struct WelcomeView: View {
+    @EnvironmentObject var auth: AuthViewModel   // <— add this
     @State private var showSignInUp = false
     @State private var mScale: CGFloat = 0.5
     @State private var mOpacity: Double = 0.0
@@ -14,11 +15,9 @@ struct WelcomeView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandYellow
-                    .edgesIgnoringSafeArea(.all)
+                Color.brandYellow.ignoresSafeArea()
                 VStack(spacing: -70) {
                     Spacer()
-                    // "M" with animated scale and opacity
                     ZStack {
                         Text("M")
                             .font(AppFont.spicyRice(size: 210))
@@ -33,9 +32,7 @@ struct WelcomeView: View {
                     .scaleEffect(mScale)
                     .opacity(mOpacity)
                     .shadow(color: .black.opacity(0.15), radius: 18, x: 0, y: 12)
-                    // The above group will animate together
 
-                    // "MyDresser" in white with black outline and shadow (with a fade-in, optional)
                     ZStack {
                         Text("MyDresser")
                             .font(AppFont.spicyRice(size: 50))
@@ -48,18 +45,12 @@ struct WelcomeView: View {
                 }
             }
             .onAppear {
-                // Animate the "M" scaling and fading in with a slight bounce
-                withAnimation(.easeOut(duration: 0.6)) {
-                    mScale = 1.15
-                    mOpacity = 1.0
-                }
-                // Bounce back to normal scale
+                withAnimation(.easeOut(duration: 0.6)) { mScale = 1.15; mOpacity = 1.0 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
                     withAnimation(.interpolatingSpring(stiffness: 170, damping: 10)) {
                         mScale = 1.0
                     }
                 }
-                // Navigate after 3 seconds
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                     showSignInUp = true
                 }
@@ -67,6 +58,7 @@ struct WelcomeView: View {
             .navigationDestination(isPresented: $showSignInUp) {
                 SignInUpView()
                     .navigationBarBackButtonHidden(true)
+                    .environmentObject(auth)   // <— pass it down
             }
         }
     }

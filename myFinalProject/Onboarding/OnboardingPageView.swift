@@ -114,7 +114,7 @@ struct OnboardingPageView: View {
             }
             // Navigation to HomeView when finished
             .navigationDestination(isPresented: $goToHome) {
-                HomeView()
+                MainTabView()
                     .navigationBarBackButtonHidden(true)
             }
         }

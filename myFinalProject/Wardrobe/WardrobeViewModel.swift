@@ -10,28 +10,16 @@ import FirebaseFirestore
 
 /// Abstraction over Firestore operations for both items and outfits.
 protocol WardrobeDataService {
-    /// Listen for real-time updates to all wardrobe items.
-    func listen(
-        _ callback: @escaping (Result<[WardrobeItem], Error>) -> Void
-    ) -> ListenerRegistration
-
-    /// Save a new wardrobe item document.
-    func save(
-        _ item: WardrobeItem,
-        completion: @escaping (Result<Void, Error>) -> Void
-    )
-
-    /// Delete a wardrobe item document by its ID.
+    func listen(_ callback: @escaping (Result<[WardrobeItem], Error>) -> Void) -> ListenerRegistration
+    func save(_ item: WardrobeItem, completion: @escaping (Result<Void, Error>) -> Void)
     func deleteItem(_ id: String)
-
-    /// Update specific fields on a wardrobe item document.
     func updateItem(_ id: String, data: [String: Any])
 }
 
 class WardrobeViewModel: ObservableObject {
     // MARK: — Published state
     @Published var items: [WardrobeItem] = []
-    @Published var favoriteIDs = Set<String>()
+    @Published var favoriteIDs = Set<String>()     // kept to drive hearts reliably
     @Published var outfitsByItem: [String: [Outfit]] = [:]
     @Published var error: Error?
 
@@ -45,6 +33,7 @@ class WardrobeViewModel: ObservableObject {
                 switch result {
                 case .success(let newItems):
                     self?.items = newItems
+                    self?.favoriteIDs = Set(newItems.filter { $0.isFavorite }.compactMap { $0.id })
                 case .failure(let err):
                     self?.error = err
                 }
@@ -52,21 +41,20 @@ class WardrobeViewModel: ObservableObject {
         }
     }
 
-    deinit {
-        listener?.remove()
-    }
+    deinit { listener?.remove() }
 
     // MARK: — WardrobeItem APIs
 
-    /// Toggle favorite state for a wardrobe item.
+    /// Toggle favorite state for a wardrobe item (and persist).
     func toggleFavorite(_ item: WardrobeItem) {
-        guard let id = item.id else { return }
-        let newVal = !favoriteIDs.contains(id)
+        guard let id = item.id, let idx = items.firstIndex(where: { $0.id == id }) else { return }
+        items[idx].isFavorite.toggle()
+        let newVal = items[idx].isFavorite
+
         if newVal { favoriteIDs.insert(id) } else { favoriteIDs.remove(id) }
         service.updateItem(id, data: ["isFavorite": newVal])
     }
 
-    /// Delete a wardrobe item (and its outfits).
     func delete(_ item: WardrobeItem) {
         guard let id = item.id else { return }
         items.removeAll { $0.id == id }
@@ -75,7 +63,6 @@ class WardrobeViewModel: ObservableObject {
         service.deleteItem(id)
     }
 
-    /// Update a single field on an item by mutating and persisting.
     func updateItem(_ item: WardrobeItem, transform: (inout WardrobeItem) -> Void) {
         guard let id = item.id, let idx = items.firstIndex(where: { $0.id == id }) else { return }
         var copy = items[idx]
@@ -84,7 +71,6 @@ class WardrobeViewModel: ObservableObject {
         service.updateItem(id, data: copy.dictionary)
     }
 
-    /// Add or remove from any of the item's array‐fields.
     func modifyList<Value: Equatable>(
         _ item: WardrobeItem,
         keyPath: WritableKeyPath<WardrobeItem, [Value]>,
@@ -93,31 +79,23 @@ class WardrobeViewModel: ObservableObject {
     ) {
         guard let id = item.id, let idx = items.firstIndex(where: { $0.id == id }) else { return }
         var copy = items[idx]
-        if let v = add, !copy[keyPath: keyPath].contains(v) {
-            copy[keyPath: keyPath].append(v)
-        }
-        if let v = remove, let pos = copy[keyPath: keyPath].firstIndex(of: v) {
-            copy[keyPath: keyPath].remove(at: pos)
-        }
+        if let v = add, !copy[keyPath: keyPath].contains(v) { copy[keyPath: keyPath].append(v) }
+        if let v = remove, let pos = copy[keyPath: keyPath].firstIndex(of: v) { copy[keyPath: keyPath].remove(at: pos) }
         items[idx] = copy
         service.updateItem(id, data: copy.dictionary)
     }
 
-    // MARK: — Outfit storage
+    // MARK: — Outfit storage (unchanged)
 
-    /// Associate a list of outfits with a given item.
     func setOutfits(_ outfits: [Outfit], for item: WardrobeItem) {
         guard let id = item.id else { return }
         outfitsByItem[id] = outfits
     }
 
-    /// Retrieve outfits associated with an item.
     func outfits(for item: WardrobeItem) -> [Outfit] {
         guard let id = item.id else { return [] }
         return outfitsByItem[id] ?? []
     }
-
-    // MARK: — Outfit APIs
 
     func toggleFavorite(_ outfit: Outfit) {
         guard let oid = outfit.id else { return }
@@ -169,9 +147,10 @@ class WardrobeViewModel: ObservableObject {
 
     // MARK: — Helpers
 
-    /// Check if a wardrobe item is marked favorite.
     func isFavorite(_ item: WardrobeItem) -> Bool {
-        guard let id = item.id else { return false }
-        return favoriteIDs.contains(id)
+        if let id = item.id, let latest = items.first(where: { $0.id == id }) {
+            return latest.isFavorite
+        }
+        return item.isFavorite
     }
 }

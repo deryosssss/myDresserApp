@@ -5,16 +5,23 @@
 //  Created by Derya Baglan on 01/08/2025.
 //
 
-
 import Foundation
 import FirebaseFirestore
 
-/// Represents a single wardrobe item stored in Firestore.
 struct WardrobeItem: Identifiable, Codable {
-    @DocumentID var id: String?
-    
-    // MARK: — Core metadata
+    // MARK: - New types
+    enum SourceType: String, Codable, CaseIterable {
+        case camera, gallery, web
+    }
+
+    // MARK: - Identity & media
+    var id: String?
+    var userId: String
     var imageURL: String
+    /// Storage path of the primary image (authoritative for deletes/migrations)
+    var imagePath: String?
+
+    // MARK: - Attributes
     var category: String
     var subcategory: String
     var length: String
@@ -28,48 +35,145 @@ struct WardrobeItem: Identifiable, Codable {
     var season: String
     var size: String
 
-    // MARK: — Tag lists
     var colours: [String]
     var customTags: [String]
     var moodTags: [String]
 
-    // MARK: — Timestamps & Flags
-    @ServerTimestamp var addedAt: Date?
-    @ServerTimestamp var lastWorn: Date?
-    var isFavorite: Bool = false
+    // MARK: - New persisted fields
+    var isFavorite: Bool          // <— persisted favorite
+    var sourceType: SourceType    // <— camera / gallery / web
+    var gender: String            // <— free text (e.g., Woman / Man / Unisex / Other)
 
-    enum CodingKeys: String, CodingKey {
-        case id, imageURL, category, subcategory, length, style, designPattern,
-             closureType, fit, material, fastening, dressCode, season, size,
-             colours, customTags, moodTags, addedAt, lastWorn, isFavorite
+    /// Firestore timestamps
+    var addedAt: Date?
+    var lastWorn: Date?           // keep last worn
+
+    init(
+        id: String? = nil,
+        userId: String,
+        imageURL: String,
+        imagePath: String? = nil,
+        category: String,
+        subcategory: String,
+        length: String,
+        style: String,
+        designPattern: String,
+        closureType: String,
+        fit: String,
+        material: String,
+        fastening: String?,
+        dressCode: String,
+        season: String,
+        size: String,
+        colours: [String],
+        customTags: [String],
+        moodTags: [String],
+        // NEW with sensible defaults
+        isFavorite: Bool = false,
+        sourceType: SourceType = .gallery,
+        gender: String = "",
+        addedAt: Date? = nil,
+        lastWorn: Date? = nil
+    ) {
+        self.id = id
+        self.userId = userId
+        self.imageURL = imageURL
+        self.imagePath = imagePath
+        self.category = category
+        self.subcategory = subcategory
+        self.length = length
+        self.style = style
+        self.designPattern = designPattern
+        self.closureType = closureType
+        self.fit = fit
+        self.material = material
+        self.fastening = fastening
+        self.dressCode = dressCode
+        self.season = season
+        self.size = size
+        self.colours = colours
+        self.customTags = customTags
+        self.moodTags = moodTags
+        self.isFavorite = isFavorite
+        self.sourceType = sourceType
+        self.gender = gender
+        self.addedAt = addedAt
+        self.lastWorn = lastWorn
     }
 
-    /// Converts this item into a dictionary suitable for Firestore updates.
-    var dictionary: [String: Any] {
-        var dict: [String: Any] = [
-            "imageURL":      imageURL,
-            "category":      category,
-            "subcategory":   subcategory,
-            "length":        length,
-            "style":         style,
+    func toFirestoreData() -> [String: Any] {
+        var data: [String: Any] = [
+            "userId": userId,
+            "imageURL": imageURL,
+            "category": category,
+            "subcategory": subcategory,
+            "length": length,
+            "style": style,
             "designPattern": designPattern,
-            "closureType":   closureType,
-            "fit":           fit,
-            "material":      material,
-            "dressCode":     dressCode,
-            "season":        season,
-            "size":          size,
-            "colours":       colours,
-            "customTags":    customTags,
-            "moodTags":      moodTags,
-            "isFavorite":    isFavorite
+            "closureType": closureType,
+            "fit": fit,
+            "material": material,
+            "dressCode": dressCode,
+            "season": season,
+            "size": size,
+            "colours": colours,
+            "customTags": customTags,
+            "moodTags": moodTags,
+            "isFavorite": isFavorite,               // NEW
+            "sourceType": sourceType.rawValue,      // NEW
+            "gender": gender,                       // NEW
+            "addedAt": FieldValue.serverTimestamp()
         ]
-        if let f = fastening {
-            dict["fastening"] = f
+        if let imagePath { data["imagePath"] = imagePath }
+        if let fastening { data["fastening"] = fastening }
+        if let lastWorn  { data["lastWorn"]  = lastWorn }
+        return data
+    }
+}
+
+extension WardrobeItem {
+    /// Update payload (no addedAt so we don't clobber it).
+    var dictionary: [String: Any] {
+        var data: [String: Any] = [
+            "userId": userId,
+            "imageURL": imageURL,
+            "category": category,
+            "subcategory": subcategory,
+            "length": length,
+            "style": style,
+            "designPattern": designPattern,
+            "closureType": closureType,
+            "fit": fit,
+            "material": material,
+            "dressCode": dressCode,
+            "season": season,
+            "size": size,
+            "colours": colours,
+            "customTags": customTags,
+            "moodTags": moodTags,
+            "isFavorite": isFavorite,                 // NEW
+            "sourceType": sourceType.rawValue,        // NEW
+            "gender": gender                          // NEW
+        ]
+
+        if let imagePath {
+            data["imagePath"] = imagePath
+        } else {
+            data["imagePath"] = FieldValue.delete()
         }
-        if let lw = lastWorn {
-            dict["lastWorn"] = Timestamp(date: lw)
+
+        if let fastening {
+            data["fastening"] = fastening
+        } else {
+            data["fastening"] = FieldValue.delete()
         }
-        return dict
+
+        if let lastWorn {
+            data["lastWorn"] = lastWorn
+        } else {
+            data["lastWorn"] = FieldValue.delete()
+        }
+
+        return data
     }
 }

@@ -4,11 +4,11 @@
 //
 //  Created by Derya Baglan on 28/07/2025.
 //
-//
+
 import SwiftUI
 
 struct SignUpView: View {
-    @StateObject private var vm = SignUpViewModel()
+    @StateObject private var vm = SignupFlowViewModel()
 
     var body: some View {
         NavigationStack {
@@ -37,7 +37,7 @@ struct SignUpView: View {
                     // Input Fields
                     VStack(spacing: 16) {
                         TextField("Email *", text: $vm.email)
-                            .autocapitalization(.none)
+                            .textInputAutocapitalization(.never)
                             .disableAutocorrection(true)
                             .keyboardType(.emailAddress)
                             .font(AppFont.agdasima(size: 18))
@@ -60,12 +60,12 @@ struct SignUpView: View {
                             .background(Color.white)
                             .cornerRadius(4)
 
-                        //  Social login placeholders (centered)
+                        // Social login placeholders (centered)
                         HStack(spacing: 14) {
-                            Button(action: {
+                            Button {
                                 vm.alertMessage = "Google Sign-In coming soon!"
                                 vm.showSocialAlert = true
-                            }) {
+                            } label: {
                                 HStack {
                                     Spacer()
                                     Image("googleIcon")
@@ -78,10 +78,11 @@ struct SignUpView: View {
                                 .background(Color.white)
                                 .cornerRadius(4)
                             }
-                            Button(action: {
+
+                            Button {
                                 vm.alertMessage = "Facebook Sign-In coming soon!"
                                 vm.showSocialAlert = true
-                            }) {
+                            } label: {
                                 HStack {
                                     Spacer()
                                     Image("facebookIcon")
@@ -113,10 +114,10 @@ struct SignUpView: View {
                         Text("Have an account?  ")
                             .foregroundColor(.black.opacity(0.7))
                             .font(AppFont.agdasima(size: 18))
-                        Button(action: {
+                        Button {
                             vm.goToSignIn = true
-                        }) {
-                            Text("Sign in")
+                        } label: {
+                            Text("sign in")
                                 .font(AppFont.spicyRice(size: 18))
                                 .foregroundColor(.black)
                                 .underline()
@@ -129,23 +130,19 @@ struct SignUpView: View {
 
                     // Terms and conditions checkbox
                     HStack(alignment: .top, spacing: 8) {
-                        Button(action: {
-                            vm.agreedToTerms.toggle()
-                        }) {
+                        Button { vm.agreedToTerms.toggle() } label: {
                             Image(systemName: vm.agreedToTerms ? "checkmark.square" : "square")
                                 .foregroundColor(.black)
                                 .font(.system(size: 20))
                         }
                         VStack(alignment: .leading, spacing: 2) {
                             Text("By signing up, you agree to myDresser's Terms and Conditions.")
-                                .font(.custom("Agdasima-Regular", size: 18))
+                                .font(AppFont.agdasima(size: 18))
                                 .foregroundColor(.black)
-                            Button(action: {
-                                vm.showTAndCs = true
-                            }) {
+                            Button { vm.showTAndCs = true } label: {
                                 Text("T&C's")
                                     .underline()
-                                    .font(.custom("Agdasima-Regular", size: 13).weight(.bold))
+                                    .font(AppFont.agdasima(size: 13).weight(.bold))
                                     .foregroundColor(.blue)
                             }
                             .sheet(isPresented: $vm.showTAndCs) {
@@ -156,9 +153,9 @@ struct SignUpView: View {
                     .padding(.horizontal, 24)
                     .padding(.bottom, 30)
 
-                    // Continue button (reused)
+                    // Continue button
                     ContinueButton(
-                        title: vm.isLoading ? "Signing Up..." : "Continue",
+                        title: vm.isLoading ? "Signing Up..." : "CONTINUE",
                         enabled: vm.canContinue && !vm.isLoading,
                         action: vm.signUp,
                         backgroundColor: .white
@@ -167,12 +164,13 @@ struct SignUpView: View {
                     Spacer()
                 }
             }
+            // Navigation
             .navigationDestination(isPresented: $vm.goToSignIn) {
                 SignInView()
                     .navigationBarBackButtonHidden(true)
             }
             .navigationDestination(isPresented: $vm.showEmailVerification) {
-                EmailVerificationFlowView(email: vm.email)
+                EmailVerificationFlowView(email: vm.email)  // your existing screen
                     .navigationBarBackButtonHidden(true)
             }
             .alert(vm.alertMessage, isPresented: $vm.showSocialAlert) {

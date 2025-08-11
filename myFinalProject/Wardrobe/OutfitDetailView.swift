@@ -21,9 +21,11 @@ struct OutfitDetailView: View {
 
     var body: some View {
         ScrollView {
-            // Canvas of outfit items
+            // ====== IMAGE CANVAS ======
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ForEach(outfit.itemImageURLs, id: \.self) { url in
+                    let single = outfit.itemImageURLs.count == 1
+
                     AsyncImage(url: URL(string: url)) { phase in
                         switch phase {
                         case .empty:
@@ -31,20 +33,26 @@ struct OutfitDetailView: View {
                         case .success(let img):
                             img
                                 .resizable()
-                                .scaledToFit()
+                                .scaledToFit()     // see the whole item
                                 .frame(height: 180)
                         default:
-                            Color(.systemGray4).frame(height: 180)
+                            Color.white.frame(height: 180)
                         }
                     }
                     .padding(.horizontal, 5)
+                    // If there's only one image, span both columns to remove “empty” side
+                    .if(single) { view in
+                        view.gridCellColumns(2)
+                    }
                 }
             }
             .padding(.horizontal, 10)
             .padding(.vertical)
             .padding(.top, 20)
+            // Force a clean white backdrop so no grey shows through
+            .background(Color.white)
 
-            // Favorite & Delete controls
+            // ====== FAVORITE & DELETE ======
             HStack {
                 Spacer()
                 Button {
@@ -52,8 +60,13 @@ struct OutfitDetailView: View {
                 } label: {
                     Image(systemName: outfit.isFavorite ? "heart.fill" : "heart")
                         .font(.title)
-                        .foregroundColor(.red)
+                        .foregroundColor(.pink)
+                        .padding()
+                        .background(Color.blue.opacity(0.15))   // light blue bubble
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.black, lineWidth: 1)) // thin outline
                 }
+
                 Button(role: .destructive) {
                     showDeleteAlert = true
                 } label: {
@@ -65,7 +78,7 @@ struct OutfitDetailView: View {
             .padding(.vertical)
             .padding(.horizontal)
 
-            // Items row
+            // ====== ITEMS ROW ======
             VStack(alignment: .leading, spacing: 8) {
                 Text("Items")
                     .font(.headline)
@@ -85,7 +98,7 @@ struct OutfitDetailView: View {
                                         .frame(width: 100, height: 120)
                                         .clipped()
                                 default:
-                                    Color(.systemGray4)
+                                    Color.white
                                         .frame(width: 100, height: 120)
                                 }
                             }
@@ -97,7 +110,7 @@ struct OutfitDetailView: View {
             }
             .padding(.top)
 
-            // Tags row (brandGrey, adaptive grid, removable)
+            // ====== TAGS ======
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Tags")
@@ -140,6 +153,26 @@ struct OutfitDetailView: View {
 
             Spacer(minLength: 40)
         }
+        // “Sandwich” button in the image area; brandYellow + thin black outline
+        .overlay(alignment: .bottomLeading) {
+            HStack {
+                Button {
+                    // hook up if you later add actions
+                } label: {
+                    Image(systemName: "line.horizontal.3")
+                        .font(.title2)
+                        .padding()
+                        .background(Color.brandYellow.opacity(0.25))
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.black, lineWidth: 1))
+                        .foregroundColor(.black)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 0)
+        }
+        .background(Color.white) // whole screen white, no grey bleed
         .alert("Delete this outfit?", isPresented: $showDeleteAlert) {
             Button("Delete", role: .destructive) {
                 vm.delete(outfit)
@@ -193,34 +226,11 @@ struct OutfitDetailView: View {
     }
 }
 
-#if DEBUG
-struct OutfitDetailView_Previews: PreviewProvider {
-    static let sample = Outfit(
-        id: "o1",
-        name: "Summer Brunch",
-        description: "Light and airy for sunny days",
-        imageURL: "https://via.placeholder.com/300/FFA500",
-        itemImageURLs: [
-            "https://via.placeholder.com/120",
-            "https://via.placeholder.com/120/ff0000",
-            "https://via.placeholder.com/120/00ff00"
-        ],
-        itemIDs: ["item1", "item2", "item3"],
-        tags: ["Summer", "Crazy", "Beautiful", "Casual", "Brunch", "Interesting"],
-        createdAt: Date(),
-        lastWorn: Calendar.current.date(byAdding: .day, value: -3, to: Date()),
-        wearCount: 4,
-        isFavorite: true,
-        source: "manual"
-    )
-
-    static var previews: some View {
-        NavigationStack {
-            OutfitDetailView(outfit: sample)
-                .environmentObject(WardrobeViewModel())
-        }
-        .previewLayout(.sizeThatFits)
-        .padding()
+// MARK: - Tiny conditional modifier helper
+private extension View {
+    @ViewBuilder
+    func `if`<Content: View>(_ condition: Bool,
+                             transform: (Self) -> Content) -> some View {
+        if condition { transform(self) } else { self }
     }
 }
-#endif

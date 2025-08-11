@@ -70,7 +70,7 @@ struct WardrobeView: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 ))
-                .frame(height: 110)
+                .frame(height: 90)
                 .padding(.horizontal, 20)
                 .padding(.top, 10)
 
@@ -186,8 +186,12 @@ struct WardrobeView: View {
                         switch phase {
                         case .empty: ProgressView().frame(height: 180)
                         case .success(let img):
-                            img.resizable().scaledToFill().frame(height: 180).clipped()
-                        default: Color(.systemGray5).frame(height: 180)
+                            img.resizable()
+                                .scaledToFit()                        // no cropping
+                                .frame(height: 180)                   // same height as before
+                                .background(Color(.white))      // consistent background
+
+                        default: Color(.white).frame(height: 180)
                         }
                     }
                 }
@@ -247,8 +251,12 @@ private struct WardrobeItemCard: View {
                 switch phase {
                 case .empty: ProgressView().frame(width: 160, height: 180)
                 case .success(let img):
-                    img.resizable().scaledToFill().frame(width: 160, height: 180).clipped()
-                default: Color(.systemGray5).frame(width: 160, height: 180)
+                    img.resizable()
+                        .scaledToFit()                         // show entire item
+                        .frame(width: 160, height: 180)       // keep card size identical
+                        .background(Color(.white))      // fill letterbox area to match old look
+
+                default: Color(.white).frame(width: 160, height: 180)
                 }
             }
             Button(action: toggleFavorite) {
@@ -260,89 +268,6 @@ private struct WardrobeItemCard: View {
             }
             .offset(x: -8, y: -8)
         }
-    }
-}
-
-
-
-
-
-// MARK: — Preview
-
-struct WardrobeView_Previews: PreviewProvider {
-    static var previews: some View {
-        // 1. Create a sample WardrobeItem
-        let sampleItem = WardrobeItem(
-            id: "item1",
-            imageURL: "https://via.placeholder.com/300",
-            category: "Dress",
-            subcategory: "Cocktail",
-            length: "Maxi",
-            style: "Elegant",
-            designPattern: "Plain",
-            closureType: "Zipper",
-            fit: "Regular",
-            material: "Silk",
-            fastening: "None",
-            dressCode: "Black Tie",
-            season: "Summer",
-            size: "M",
-            colours: ["ff66a3", "0099ff"],
-            customTags: ["Party"],
-            moodTags: ["Happy"],
-            addedAt: Date(),
-            lastWorn: nil
-        )
-
-        // 2. Create and configure the view model
-        let vm = WardrobeViewModel()
-        vm.items = [sampleItem]
-
-        // 3. Two sample outfits using the new model
-        let outfit1 = Outfit(
-            id: "o1",
-            name: "Summer Brunch",
-            description: "Light and airy for sunny days",
-            imageURL: "https://via.placeholder.com/300/FFA500",
-            itemImageURLs: [
-                        "https://via.placeholder.com/120",
-                        "https://via.placeholder.com/120/ff0000",
-                        "https://via.placeholder.com/120/00ff00"
-                    ],
-            itemIDs: ["item1", "item2", "item3"],
-            tags: ["summer", "brunch", "casual"],
-            createdAt: Date(),
-            lastWorn: Calendar.current.date(byAdding: .day, value: -3, to: Date()),
-            wearCount: 4,
-            isFavorite: true,
-            source: "manual"
-        )
-
-        let outfit2 = Outfit(
-            id: "o2",
-            name: "Office Chic",
-            description: "Smart layering for work",
-            imageURL: "https://via.placeholder.com/300/0000FF",
-            itemImageURLs: [
-                        "https://via.placeholder.com/120",
-                        "https://via.placeholder.com/120/ff0000",
-                        "https://via.placeholder.com/120/00ff00"
-                    ],
-            itemIDs: ["item1", "item4"],
-            tags: ["office", "formal"],
-            createdAt: Calendar.current.date(byAdding: .weekOfYear, value: -2, to: Date()),
-            lastWorn: Calendar.current.date(byAdding: .day, value: -10, to: Date()),
-            wearCount: 2,
-            isFavorite: false,
-            source: "ai"
-        )
-        // 4. Associate them with the sample item
-        vm.setOutfits([outfit1, outfit2], for: sampleItem)
-
-        // 5. Return the preview
-        return WardrobeView(viewModel: vm)
-            .previewDevice("iPhone 14 Pro")
-            .previewDisplayName("WardrobeView – Sample Outfits")
     }
 }
 
