@@ -130,7 +130,10 @@ struct ProfileView: View {
                             .padding(.vertical, 13)
                             .background(Color(.systemGray6))
                         }
-                        Button(action: { vm.requestDeleteAccount() }) {
+                        NavigationLink {
+                            DeleteAccountView()
+                                .navigationBarBackButtonHidden(true)
+                        } label: {
                             Text("Delete Account")
                                 .font(AppFont.agdasima(size: 20))
                                 .foregroundColor(.red)

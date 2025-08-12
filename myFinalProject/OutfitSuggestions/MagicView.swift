@@ -8,258 +8,284 @@
 import SwiftUI
 import CoreLocation
 import UIKit
-
-// MARK: - Weather Model
-
-struct WeatherData: Codable {
-    struct Main: Codable { let temp: Double }
-    struct Weather: Codable { let icon: String }
-    let main: Main
-    let weather: [Weather]
-}
-
-// MARK: - ViewModel for Weather & Date
-
-class MagicViewModel: NSObject, ObservableObject, CLLocationManagerDelegate {
-    @Published var temperature: String = "--°"
-    @Published var icon: Image? = nil
-    @Published var currentDate: Date = Date()
-    @Published var weekDates: [Date] = []
-
-    private let locationManager = CLLocationManager()
-    private let apiKey: String = {
-        let bundle = Bundle.main
-        if let key = bundle.infoDictionary?["OpenWeatherMapAPIKey"] as? String,
-           !key.isEmpty {
-            return key
-        } else {
-            fatalError("⚠️ Missing OpenWeatherMapAPIKey in Info.plist")
-        }
-    }()
-
-    override init() {
-        super.init()
-        generateWeekDates()
-
-        locationManager.delegate = self
-        locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
-
-        // 1) Ask for permission
-        locationManager.requestWhenInUseAuthorization()
-    }
-
-    // 2) Called when user responds to the permission dialog
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        switch manager.authorizationStatus {
-        case .authorizedWhenInUse, .authorizedAlways:
-            // Now that we have permission, request a one-off location
-            manager.requestLocation()
-        case .denied, .restricted:
-            print("🛑 Location access denied or restricted")
-        default:
-            break
-        }
-    }
-
-    // 3) Got a location → fetch weather
-    func locationManager(_ manager: CLLocationManager,
-                         didUpdateLocations locations: [CLLocation]) {
-        guard let loc = locations.first else { return }
-        fetchWeather(lat: loc.coordinate.latitude,
-                     lon: loc.coordinate.longitude)
-    }
-
-    // 4) Location error
-    func locationManager(_ manager: CLLocationManager,
-                         didFailWithError error: Error) {
-        print("❌ Location error:", error.localizedDescription)
-    }
-
-    private func fetchWeather(lat: Double, lon: Double) {
-        guard let url = URL(string:
-            "https://api.openweathermap.org/data/2.5/weather?lat=\(lat)&lon=\(lon)&units=metric&appid=\(apiKey)"
-        ) else { return }
-
-        print("➡️ Fetching weather from URL:", url)
-
-        URLSession.shared.dataTask(with: url) { data, resp, error in
-            if let error = error {
-                print("❌ Weather request failed:", error.localizedDescription)
-                return
-            }
-            guard let data = data else {
-                print("❌ No data returned from weather API")
-                return
-            }
-            do {
-                let decoded = try JSONDecoder().decode(WeatherData.self, from: data)
-                DispatchQueue.main.async {
-                    let temp = Int(round(decoded.main.temp))
-                    self.temperature = "\(temp)°C"
-                    if let iconCode = decoded.weather.first?.icon {
-                        self.loadIcon(code: iconCode)
-                    }
-                }
-            } catch {
-                print("❌ JSON decode error:", error)
-            }
-        }.resume()
-    }
-
-    private func loadIcon(code: String) {
-        let iconURL = URL(string:
-            "https://openweathermap.org/img/wn/\(code)@2x.png"
-        )!
-        URLSession.shared.dataTask(with: iconURL) { data, _, error in
-            if let error = error {
-                print("❌ Icon load error:", error.localizedDescription)
-                return
-            }
-            guard let data = data,
-                  let uiImage = UIImage(data: data) else {
-                print("❌ Icon data invalid")
-                return
-            }
-            DispatchQueue.main.async {
-                self.icon = Image(uiImage: uiImage)
-            }
-        }.resume()
-    }
-
-    private func generateWeekDates() {
-        let calendar = Calendar.current
-        let today = Date()
-        let startOfWeek = calendar.date(
-            from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear],
-                                          from: today)
-        ) ?? today
-
-        weekDates = (0..<7).compactMap { offset in
-            calendar.date(byAdding: .day, value: offset, to: startOfWeek)
-        }
-    }
-}
-
-// MARK: - MagicView
+import FirebaseAuth
 
 struct MagicView: View {
     @StateObject private var vm = MagicViewModel()
     @State private var selectedDate: Date? = nil
-
+    @State private var hasAutoScrolled = false
+    
     var body: some View {
-        VStack(spacing: 16) {
-            // Weather + Date
-            HStack(spacing: 12) {
-                if let icon = vm.icon {
-                    icon
-                        .resizable()
-                        .frame(width: 50, height: 50)
+        GeometryReader { geo in
+            // compute a responsive card height based on available height
+            // (works in preview and with a TabView in the simulator)
+            let h = geo.size.height
+            let cardHeight = max(200, min(280, h * 0.27 )) // clamp to 180…280
+            
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 16) {
+                    header
+                    dayScroller
+                    actionBoard(cardHeight: cardHeight)
                 }
-                VStack(alignment: .leading) {
-                    Text(vm.temperature)
-                        .font(.largeTitle)
-                        .bold()
-                    Text(vm.currentDate, formatter: dateFormatter)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                Spacer()
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 20) // breathing room above the tab bar
             }
-            .padding(.horizontal)
-
-            // Week calendar
+            .background(Color.white.ignoresSafeArea())
+        }
+    }
+    
+    // MARK: Header (weather + selected date)
+    private var header: some View {
+        HStack(spacing: 12) {
+            Group {
+                if let icon = vm.icon {
+                    icon.resizable().frame(width: 50, height: 50)
+                } else {
+                    Image(systemName: "cloud.sun")
+                        .symbolRenderingMode(.multicolor)
+                    
+                }
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(vm.temperature)
+                    .font(AppFont.spicyRice(size: 36))
+                Text((selectedDate ?? vm.currentDate), formatter: fullDateFormatter)
+                    .font(AppFont.spicyRice(size: 20))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+    }
+    
+    
+    // MARK: Week scroller (Mon–Sun chips)
+    private var dayScroller: some View {
+        ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
+                LazyHStack(spacing: 12) {
                     ForEach(vm.weekDates, id: \.self) { date in
                         let isSelected = Calendar.current.isDate(
                             date,
                             inSameDayAs: selectedDate ?? vm.currentDate
                         )
-                        VStack {
-                            Text(weekdayFormatter.string(from: date))
-                                .font(.caption)
-                            Text(dayFormatter.string(from: date))
-                                .font(.headline)
-                        }
-                        .padding(8)
-                        .background(isSelected
-                                    ? Color.accentColor.opacity(0.2)
-                                    : Color.clear)
-                        .cornerRadius(8)
-                        .onTapGesture {
-                            selectedDate = date
-                        }
+                        DayChip(date: date, isSelected: isSelected)
+                            .id(date)
+                            .onTapGesture {
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                    selectedDate = date
+                                    proxy.scrollTo(date, anchor: .center)
+                                }
+                                haptic()
+                            }
+                            .onAppear {
+                                if !hasAutoScrolled && Calendar.current.isDateInToday(date) {
+                                    DispatchQueue.main.async {
+                                        withAnimation(.easeInOut(duration: 0.35)) {
+                                            proxy.scrollTo(date, anchor: .center)
+                                        }
+                                        hasAutoScrolled = true
+                                    }
+                                }
+                            }
                     }
                 }
-                .padding(.horizontal)
+                .padding(.vertical, 6)
             }
-
-            // Four options grid
-            LazyVGrid(columns: [GridItem(), GridItem()],
-                      spacing: 16) {
-                OptionButton(title: "Weather Outfit",
-                             systemImage: "cloud.sun") {
-                    // action
-                }
-                OptionButton(title: "Dresscode Outfit",
-                             systemImage: "tshirt") {
-                    // action
-                }
-                OptionButton(title: "Prompt Outfit",
-                             systemImage: "brain.head.profile") {
-                    // action
-                }
-                OptionButton(title: "Manual Outfit",
-                             systemImage: "pencil") {
-                    // action
-                }
-            }
-            .padding(.horizontal)
-
-            Spacer()
         }
     }
-
-    // MARK: – Formatters
-
-    private var dateFormatter: DateFormatter {
-        let f = DateFormatter()
-        f.dateStyle = .long
-        return f
+    
+    // MARK: Big grey panel with 4 colorful cards (as NavigationLinks)
+    private func actionBoard(cardHeight: CGFloat) -> some View {
+        VStack(spacing: 12) {
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 0),
+                          GridItem(.flexible(), spacing: 0)],
+                spacing: 15
+            ) {
+                NavigationLink {
+                    WeatherSuggestionView(date: selectedDate ?? vm.currentDate)
+                } label: {
+                    ActionCardView(
+                        title: "Outfit ideas\nfor the Weather",
+                        symbol: "cloud.sun",
+                        gradient: [.brandBlue, .brandGreen],
+                        textColor: .black,
+                        height: cardHeight
+                    )
+                }
+                
+                NavigationLink {
+                    DressCodeSuggestionView(date: selectedDate ?? vm.currentDate)
+                } label: {
+                    ActionCardView(
+                        title: "Outfit ideas\nfor the dress code",
+                        symbol: "tshirt",
+                        gradient: [.brandGreen, .brandYellow],
+                        textColor: .black,
+                        height: cardHeight
+                    )
+                }
+                
+                NavigationLink {
+                    PromptSuggestionView(date: selectedDate ?? vm.currentDate)
+                } label: {
+                    ActionCardView(
+                        title: "Prompt based\noutfit suggestions",
+                        symbol: "sparkles.rectangle.stack",
+                        gradient: [.brandOrange, .brandYellow],
+                        textColor: .black,
+                        height: cardHeight
+                    )
+                }
+                
+                NavigationLink {
+                    ManualSuggestionView(userId: Auth.auth().currentUser?.uid ?? "")
+                } label: {
+                    ActionCardView(
+                        title: "Manual outfit\ncreation",
+                        symbol: "square.and.pencil",
+                        gradient: [.brandPink, .brandPeach],
+                        textColor: .black,
+                        height: cardHeight
+                    )
+                }
+            }
+        }
+        .padding(20)
+        .padding(.vertical, 20)
+        .background(
+            RoundedRectangle(cornerRadius: 0, style: .continuous)
+                .fill(Color.brandDarkGrey)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 0, style: .continuous)
+                .stroke(.black.opacity(0.05), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.06), radius: 6, y: 3)
     }
-    private var weekdayFormatter: DateFormatter {
-        let f = DateFormatter()
-        f.dateFormat = "EEE"
-        return f
-    }
-    private var dayFormatter: DateFormatter {
-        let f = DateFormatter()
-        f.dateFormat = "d"
-        return f
+    
+    // MARK: Haptic
+    private func haptic() {
+#if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+#endif
     }
 }
 
-// MARK: - Option Button
+// MARK: - Subviews
 
-struct OptionButton: View {
-    let title: String
-    let systemImage: String
-    let action: () -> Void
-
+private struct DayChip: View {
+    let date: Date
+    let isSelected: Bool
+    
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                Image(systemName: systemImage)
-                    .font(.largeTitle)
-                Text(title)
-                    .font(.headline)
-            }
-            .frame(maxWidth: .infinity, minHeight: 100)
-            .background(Color(UIColor.systemGray6))
-            .cornerRadius(12)
+        VStack(spacing: 6) {
+            Text(weekdayShortFormatter.string(from: date).uppercased())
+                .font(AppFont.agdasima(size: 18))
+            Text(dayNumberFormatter.string(from: date))
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .opacity(0.85)
         }
-        .buttonStyle(PlainButtonStyle())
+        .frame(width: 50, height: 60)
+        .background(background)
+        .overlay(
+            RoundedRectangle(cornerRadius: 0, style: .continuous)
+                .strokeBorder(isSelected ? .white.opacity(0.95) : .black.opacity(0.08),
+                              lineWidth: isSelected ? 2 : 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 0, style: .continuous))
+        .shadow(color: .black.opacity(isSelected ? 0.12 : 0.06),
+                radius: 0,
+                y: isSelected ? 3 : 1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel({
+            let df = DateFormatter(); df.dateStyle = .full
+            return (isSelected ? "Selected, " : "") + df.string(from: date)
+        }())
+    }
+    
+    private var background: some ShapeStyle {
+        if isSelected {
+            return AnyShapeStyle(LinearGradient(colors: [.brandPink.opacity(0.95), .brandPurple.opacity(0.85)],
+                                                startPoint: .topLeading, endPoint: .bottomTrailing))
+        } else if Calendar.current.isDateInToday(date) {
+            return AnyShapeStyle(LinearGradient(colors: [.brandYellow.opacity(0.9), .brandPeach.opacity(0.85)],
+                                                startPoint: .topLeading, endPoint: .bottomTrailing))
+        } else {
+            return AnyShapeStyle(Color.brandGrey)
+        }
     }
 }
 
+/// Pure visual card (no nested Button) so NavigationLink is the tap target.
+private struct ActionCardView: View {
+    let title: String
+    let symbol: String
+    let gradient: [Color]
+    var textColor: Color = .black
+    var height: CGFloat = 220
+    
+    var body: some View {
+        ZStack(alignment: .top) {
+            RoundedRectangle(cornerRadius: 0, style: .continuous)
+                .fill(LinearGradient(colors: gradient, startPoint: .topLeading, endPoint: .bottomTrailing))
+            RoundedRectangle(cornerRadius: 0, style: .continuous)
+                .stroke(.white.opacity(0.35), lineWidth: 1)
+            
+            VStack(alignment: .center, spacing: 10) {
+                Image(systemName: symbol)
+                    .imageScale(.large)
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.black)
+                    .padding(10)
+                    .background(.ultraThinMaterial,
+                                in: RoundedRectangle(cornerRadius: 0, style: .continuous))
+                
+                Text(title)
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(textColor)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.85)
+            }
+            .padding(14)
+        }
+        .frame(height: height)
+        .frame(maxWidth: 140)
+        .shadow(color: .black.opacity(0.12), radius: 8, y: 6)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(title.replacingOccurrences(of: "\n", with: " "))
+    }
+}
 
+// MARK: - Formatters
+private let fullDateFormatter: DateFormatter = {
+    let f = DateFormatter()
+    f.setLocalizedDateFormatFromTemplate("EEEE, d MMMM yyyy")
+    return f
+}()
+private let dayNumberFormatter: DateFormatter = {
+    let f = DateFormatter()
+    f.setLocalizedDateFormatFromTemplate("d")
+    return f
+}()
+private let weekdayShortFormatter: DateFormatter = {
+    let f = DateFormatter()
+    f.setLocalizedDateFormatFromTemplate("EEE")
+    return f
+}()
+private let monthShortFormatter: DateFormatter = {
+    let f = DateFormatter()
+    f.setLocalizedDateFormatFromTemplate("MMM")
+    return f
+}()
+
+// MARK: - Preview
+struct MagicView_Previews: PreviewProvider {
+    static var previews: some View {
+        NavigationStack { MagicView() }
+            .previewDisplayName("MagicView — Light")
+    }
+}
