@@ -58,22 +58,6 @@ struct WardrobeView: View {
 
     private var header: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 0)
-                .fill(LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color.orange.opacity(0.5),
-                        Color.pink.opacity(0.4),
-                        Color.yellow.opacity(0.4),
-                        Color.pink.opacity(0.4),
-                        Color.orange.opacity(0.5)
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ))
-                .frame(height: 90)
-                .padding(.horizontal, 20)
-                .padding(.top, 10)
-
             Text("My Wardrobe")
                 .font(AppFont.spicyRice(size: 28))
                 .foregroundColor(.black)

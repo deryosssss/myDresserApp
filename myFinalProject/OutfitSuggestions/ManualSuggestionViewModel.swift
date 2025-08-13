@@ -6,7 +6,6 @@
 //
 
 
-
 import Foundation
 import SwiftUI
 import UIKit
@@ -18,7 +17,6 @@ import FirebaseFirestore
 struct ManualSuggestionStore {
     private let db = Firestore.firestore()
 
-    /// Pulls recent items, then filters client-side by layer kind (strict to avoid cross-contamination).
     func fetchItems(userId: String, for kind: LayerKind, limit: Int = 300) async throws -> [WardrobeItem] {
         let col = db.collection("users").document(userId).collection("items")
         let snapshot = try await col
@@ -34,11 +32,18 @@ struct ManualSuggestionStore {
         return Array(filtered.prefix(limit))
     }
 
-    func saveOutfit(userId: String,
-                    name: String,
-                    selections: [LayerSelection],
-                    itemsByLayer: [LayerKind: [WardrobeItem]],
-                    tags: [String] = []) async throws -> String {
+    /// Meta-aware save (occasion/description/date/favorite). Tags left flexible.
+    func saveOutfit(
+        userId: String,
+        name: String,
+        selections: [LayerSelection],
+        itemsByLayer: [LayerKind: [WardrobeItem]],
+        tags: [String] = [],
+        occasion: String? = nil,
+        description: String = "",
+        createdOn: Date? = nil,
+        isFavorite: Bool = false
+    ) async throws -> String {
 
         let selectedItems: [WardrobeItem] = selections.compactMap { sel in
             guard let itemID = sel.itemID,
@@ -50,19 +55,24 @@ struct ManualSuggestionStore {
         let itemImageURLs = selectedItems.map { $0.imageURL }
         let coverURL = itemImageURLs.first ?? ""
 
-        let payload: [String: Any] = [
+        var payload: [String: Any] = [
             "name": name,
-            "description": "",
+            "description": description,
+            "occasion": occasion ?? "",
             "imageURL": coverURL,
             "itemImageURLs": itemImageURLs,
             "itemIDs": itemIDs,
             "tags": tags,
             "wearCount": 0,
-            "isFavorite": false,
+            "isFavorite": isFavorite,
             "source": "manual",
             "createdAt": FieldValue.serverTimestamp(),
             "lastWorn": FieldValue.serverTimestamp()
         ]
+
+        if let createdOn {
+            payload["createdOn"] = Timestamp(date: createdOn)
+        }
 
         let ref = db.collection("users").document(userId).collection("outfits").document()
         try await ref.setData(payload)
@@ -102,7 +112,6 @@ struct ManualSuggestionStore {
         )
     }
 
-    /// STRICT layer matching using category/subcategory with negative guards.
     private func matches(_ item: WardrobeItem, for kind: LayerKind) -> Bool {
         let cat = item.category.lowercased()
         let sub = item.subcategory.lowercased()
@@ -112,13 +121,13 @@ struct ManualSuggestionStore {
             return needles.contains { joined.contains($0) }
         }
 
-        // Core type buckets from category/subcategory
+        // Core type buckets
         let isDressLike  = containsAny(["dress", "gown", "jumpsuit", "overall"], in: cat, sub)
-        let isTopLike    = containsAny(["top", "shirt", "blouse", "t-shirt", "tee", "sweater", "hoodie", "cardigan"], in: cat, sub)
-        let isBottomLike = containsAny(["pants", "jeans", "skirt", "shorts", "trouser", "trousers"], in: cat, sub)
+        let isTopLike    = containsAny(["top", "shirt", "blouse", "t-shirt", "tee", "sweater", "hoodie", "cardigan", "tank"], in: cat, sub)
+        let isBottomLike = containsAny(["pants", "jeans", "skirt", "shorts", "trouser", "trousers", "leggings", "trackpants"], in: cat, sub)
         let isShoeLike   = containsAny(["shoe", "shoes", "sneaker", "trainer", "boot", "boots", "sandal", "sandals", "loafer", "loafers", "footwear"], in: cat, sub)
         let isOuterWear  = containsAny(["jacket", "coat", "blazer", "outerwear", "parka"], in: cat, sub)
-        let isBagLike    = containsAny(["bag", "handbag", "backpack", "tote", "crossbody", "purse"], in: cat, sub)
+        let isBagLike    = containsAny(["bag", "handbag", "backpack", "tote", "crossbody", "purse", "wallet"], in: cat, sub)
         let isAccessory  = containsAny(["accessory", "belt", "scarf", "hat", "cap", "jewellery", "jewelry", "glove"], in: cat, sub)
 
         switch kind {
@@ -152,7 +161,6 @@ final class ManualSuggestionViewModel: ObservableObject {
         self.layers = preset.map { LayerSelection(kind: $0) }
     }
 
-    /// Fetch items for current layers.
     func loadAll() async {
         let localStore = self.store
         let localUserId = self.userId
@@ -172,7 +180,7 @@ final class ManualSuggestionViewModel: ObservableObject {
 
             self.itemsByLayer = dict
 
-            // SAFELY sync selection per layer (no out-of-bounds)
+            // SAFELY sync selection per layer
             for i in self.layers.indices {
                 let kind = self.layers[i].kind
                 let arr = dict[kind] ?? []
@@ -184,14 +192,22 @@ final class ManualSuggestionViewModel: ObservableObject {
                 }
 
                 let current = self.selectedIndex[kind] ?? 0
-                let idx = max(0, min(current, arr.count - 1)) // clamp
+                let idx = max(0, min(current, arr.count - 1))
                 self.selectedIndex[kind] = idx
                 self.layers[i].itemID = arr[idx].id
             }
         }
     }
 
-    // MARK: - Presets
+    // Current chosen wardrobe items, in layer order
+    func selectedItems() -> [WardrobeItem] {
+        layers.compactMap { sel in
+            guard let idx = selectedIndex[sel.kind],
+                  let arr = itemsByLayer[sel.kind],
+                  arr.indices.contains(idx) else { return nil }
+            return arr[idx]
+        }
+    }
 
     func applyPreset(_ preset: LayerPreset) {
         rebuildLayers(from: preset.kinds)
@@ -205,18 +221,13 @@ final class ManualSuggestionViewModel: ObservableObject {
             if let old = layers.first(where: { $0.kind == k }) { rebuilt.append(old) }
             else { rebuilt.append(LayerSelection(kind: k)) }
         }
-
-        // Clean up state for removed kinds
         let removedKinds = Set(layers.map(\.kind)).subtracting(kinds)
         for rk in removedKinds {
             itemsByLayer[rk] = nil
             selectedIndex[rk] = nil
         }
-
         layers = rebuilt
     }
-
-    // MARK: - Selection & Locking
 
     func toggleLock(_ kind: LayerKind) {
         guard let i = layers.firstIndex(where: { $0.kind == kind }) else { return }
@@ -231,20 +242,16 @@ final class ManualSuggestionViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Randomizer
-
     func randomizeUnlocked() {
         for layer in layers where !layer.locked {
             guard let arr = itemsByLayer[layer.kind], !arr.isEmpty else { continue }
             let r = Int.random(in: 0..<arr.count)
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
+            withAnimation(.easeInOut) {
                 select(kind: layer.kind, index: r)
             }
         }
         UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
     }
-
-    // MARK: - Validation + Save
 
     var isComplete: Bool {
         let kinds = Set(layers.map { $0.kind })
@@ -253,7 +260,15 @@ final class ManualSuggestionViewModel: ObservableObject {
         return kinds.contains(.top) && kinds.contains(.bottom)
     }
 
-    func saveOutfit(name: String, tags: [String] = []) async {
+    // Meta-aware save used by the preview sheet
+    func saveOutfit(
+        name: String,
+        occasion: String?,
+        description: String,
+        date: Date?,
+        isFavorite: Bool,
+        tags: [String] = []
+    ) async {
         guard isComplete else {
             errorMessage = "Outfit incomplete (need Shoes + [Dress] or [Top & Bottom])."
             return
@@ -266,7 +281,11 @@ final class ManualSuggestionViewModel: ObservableObject {
                 name: name,
                 selections: layers,
                 itemsByLayer: itemsByLayer,
-                tags: tags
+                tags: tags,
+                occasion: occasion,
+                description: description,
+                createdOn: date,
+                isFavorite: isFavorite
             )
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         } catch {

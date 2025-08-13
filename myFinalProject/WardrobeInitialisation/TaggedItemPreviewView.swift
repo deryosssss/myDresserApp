@@ -171,7 +171,8 @@ struct TaggedItemPreviewView: View {
                 singleBindings:     singleBindings,
                 listAddBindings:    listAddBindings,
                 listRemoveBindings: listRemoveBindings,
-                listReadBindings:   listReadBindings
+                listReadBindings:   listReadBindings,
+                currentCategory:    { taggingVM.category }  
             )
         }
     }

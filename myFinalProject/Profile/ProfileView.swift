@@ -25,15 +25,7 @@ struct ProfileView: View {
                     // Header Card
                     ZStack(alignment: .topLeading) {
                         RoundedRectangle(cornerRadius: 0, style: .continuous)
-                            .fill(LinearGradient(
-                                gradient: Gradient(colors: [
-                                    Color.pink.opacity(0.5),
-                                    Color.yellow.opacity(0.5),
-                                    Color.purple.opacity(0.5)
-                                ]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ))
+                            .fill(Color(.white))
                             .frame(height: 130)
                             .padding(.top, 140)
                             .padding(.horizontal, 20)

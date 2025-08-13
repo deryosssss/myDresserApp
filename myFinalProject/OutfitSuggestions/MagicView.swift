@@ -105,7 +105,15 @@ struct MagicView: View {
                 spacing: 15
             ) {
                 NavigationLink {
-                    WeatherSuggestionView(date: selectedDate ?? vm.currentDate)
+                    WeatherSuggestionView(
+                        userId: Auth.auth().currentUser?.uid ?? "preview-user",
+                        lat: vm.latitude ?? 0,
+                        lon: vm.longitude ?? 0,
+                        isRaining: vm.isRaining,
+                        temperature: vm.temperature,
+                        icon: vm.icon,
+                        date: selectedDate ?? vm.currentDate
+                    )
                 } label: {
                     ActionCardView(
                         title: "Outfit ideas\nfor the Weather",
@@ -115,9 +123,10 @@ struct MagicView: View {
                         height: cardHeight
                     )
                 }
-                
+
                 NavigationLink {
-                    DressCodeSuggestionView(date: selectedDate ?? vm.currentDate)
+                    let uid = Auth.auth().currentUser?.uid ?? "demo-user"
+                    DressCodeSuggestionView(userId: uid)   // <-- correct initializer
                 } label: {
                     ActionCardView(
                         title: "Outfit ideas\nfor the dress code",
@@ -129,7 +138,7 @@ struct MagicView: View {
                 }
                 
                 NavigationLink {
-                    PromptSuggestionView(date: selectedDate ?? vm.currentDate)
+                    PromptSuggestionView(userId: Auth.auth().currentUser?.uid ?? "demo-user")
                 } label: {
                     ActionCardView(
                         title: "Prompt based\noutfit suggestions",

@@ -4,7 +4,7 @@
 //
 //  Created by Derya Baglan on 12/08/2025.
 //
-
+//
 
 import SwiftUI
 
@@ -12,33 +12,33 @@ import SwiftUI
 private enum Layout {
     static let topPadding: CGFloat = 20
     static let boxCorner: CGFloat = 14
-    static let buttonHeight: CGFloat = 34
-    static let sliderSpacing: CGFloat = 14
+    static let buttonHeight: CGFloat = 20
+    static let sliderSpacing: CGFloat = 14   // horizontal spacing between cards
 }
 
 /// Computed sizing based on how many layers are shown
 private struct AdaptiveSize {
     let rowHeight: CGFloat
     let cardWidth: CGFloat
-    let sectionSpacing: CGFloat
+    let sectionSpacing: CGFloat     // << tighter vertical spacing between layers
     let emptyBoxHeight: CGFloat
 
     static func forLayers(_ count: Int) -> AdaptiveSize {
         switch count {
         case ...1:
-            return .init(rowHeight: 240, cardWidth: 190, sectionSpacing: 18, emptyBoxHeight: 210)
+            return .init(rowHeight: 240, cardWidth: 190, sectionSpacing: 12, emptyBoxHeight: 210)
         case 2:
-            return .init(rowHeight: 210, cardWidth: 170, sectionSpacing: 16, emptyBoxHeight: 185)
+            return .init(rowHeight: 210, cardWidth: 170, sectionSpacing: 10, emptyBoxHeight: 185)
         case 3:
-            return .init(rowHeight: 165, cardWidth: 138, sectionSpacing: 12, emptyBoxHeight: 150) // smaller
+            return .init(rowHeight: 165, cardWidth: 138, sectionSpacing: 8,  emptyBoxHeight: 150)
         case 4:
-            return .init(rowHeight: 138, cardWidth: 120, sectionSpacing: 10, emptyBoxHeight: 125) // smaller
+            return .init(rowHeight: 116, cardWidth: 106, sectionSpacing: 6,  emptyBoxHeight: 104)
         case 5:
-            return .init(rowHeight: 116, cardWidth: 106, sectionSpacing: 9,  emptyBoxHeight: 104) // smaller
+            return .init(rowHeight: 116, cardWidth: 106, sectionSpacing: 6,  emptyBoxHeight: 104)
         case 6:
-            return .init(rowHeight: 108, cardWidth: 98,  sectionSpacing: 8,  emptyBoxHeight: 96)  // smaller
+            return .init(rowHeight: 108, cardWidth: 98,  sectionSpacing: 5,  emptyBoxHeight: 96)
         default: // 7+
-            return .init(rowHeight: 100, cardWidth: 92,  sectionSpacing: 8,  emptyBoxHeight: 90)
+            return .init(rowHeight: 100, cardWidth: 92,  sectionSpacing: 5,  emptyBoxHeight: 90)
         }
     }
 }
@@ -50,6 +50,7 @@ struct ManualSuggestionView: View {
     @State private var showingFilter = false
     @State private var selectedPreset: LayerPreset
     @State private var selectedItemForDetail: WardrobeItem?
+    @State private var showingPreview = false
 
     init(userId: String) {
         let preset: LayerPreset = .three_TopBottomShoes
@@ -84,6 +85,25 @@ struct ManualSuggestionView: View {
                     }
                 )
             }
+            .sheet(isPresented: $showingPreview) {
+                OutfitPreviewSheet(
+                    items: vm.selectedItems(),
+                    onClose: { showingPreview = false },
+                    onSave: { name, occasion, date, description, isFav in
+                        Task {
+                            await vm.saveOutfit(
+                                name: name,
+                                occasion: occasion,
+                                description: description,
+                                date: date,
+                                isFavorite: isFav,
+                                tags: []
+                            )
+                            showingPreview = false
+                        }
+                    }
+                )
+            }
         }
     }
 
@@ -114,24 +134,24 @@ struct ManualSuggestionView: View {
                     Text("No layers selected. Choose a preset below to get started.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                        .padding(.top, 8)
+                        .padding(.top, 6)
                 }
             }
             .padding(.horizontal)
-            .padding(.bottom, 96)
+            .padding(.bottom, 88) // slightly smaller bottom padding
             .animation(.spring(response: 0.28, dampingFraction: 0.92), value: vm.layers.count)
         }
     }
 
     // MARK: - Bottom Bar
     private var bottomBar: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             PresetStrip(selected: $selectedPreset) { newPreset in
                 selectedPreset = newPreset
                 vm.applyPreset(newPreset)
             }
 
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Button { vm.randomizeUnlocked() } label: {
                     Label("Roll", systemImage: "die.face.5")
                         .font(.headline)
@@ -141,25 +161,21 @@ struct ManualSuggestionView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(.brandPink)
 
-                Button {
-                    Task { await vm.saveOutfit(name: "") }
-                } label: {
-                    Group {
-                        if vm.isSaving { ProgressView().progressViewStyle(.circular) }
-                        else { Text("Save").fontWeight(.semibold) }
-                    }
-                    .foregroundColor(.black)
-                    .frame(maxWidth: .infinity, minHeight: Layout.buttonHeight)
+                Button { showingPreview = true } label: {
+                    Text("Save")
+                        .fontWeight(.semibold)
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity, minHeight: Layout.buttonHeight)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.brandGreen)
-                .disabled(!vm.isComplete)
+                .disabled(!vm.isComplete || vm.selectedItems().isEmpty)
                 .accessibilityIdentifier("bottomSaveButton")
             }
             .padding(.horizontal)
         }
-        .padding(.top, 8)
-        .padding(.bottom, 8)
+        .padding(.top, 6)
+        .padding(.bottom, 6)
         .background(.ultraThinMaterial)
     }
 
@@ -169,7 +185,7 @@ struct ManualSuggestionView: View {
         ToolbarItem(placement: .principal) {
             VStack(spacing: 2) {
                 Text("Manual outfit creation")
-                    .font(.custom("SpicyRice-Regular", size: 22, relativeTo: .headline))
+                    .font(.custom("SpicyRice-Regular", size: 20, relativeTo: .headline))
                     .minimumScaleFactor(0.8)
             }
             .multilineTextAlignment(.center)
@@ -219,8 +235,6 @@ private struct PresetStrip: View {
 }
 
 // MARK: - Focusable Layer Carousel
-/// Snap-to-center slider. **Selected card stays dead-center** even at edges.
-/// Header pin locks the currently centered selection.
 private struct FocusableLayerCarousel: View {
     let title: String
     @Binding var locked: Bool
@@ -236,9 +250,9 @@ private struct FocusableLayerCarousel: View {
     @State private var focusedID: Int?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Text(title).font(.subheadline.weight(.semibold))
+        VStack(alignment: .leading, spacing: 3) {  // << tighter than 6
+            HStack(spacing: 6) { // was 8
+                Text(title).font(.caption.weight(.semibold))
                 Spacer()
                 Button {
                     locked.toggle()
@@ -246,7 +260,7 @@ private struct FocusableLayerCarousel: View {
                 } label: {
                     Image(systemName: locked ? "pin.fill" : "pin")
                         .foregroundStyle(locked ? .red : .secondary)
-                        .padding(6)
+                        .padding(4)
                 }
                 .accessibilityLabel(locked ? "Unlock current selection" : "Lock current selection")
             }
@@ -255,59 +269,43 @@ private struct FocusableLayerCarousel: View {
                 emptyState
             } else {
                 slider
+                    .overlay(centerGuide)
+                    .mask(edgeFades)
             }
         }
         .onAppear { focusedID = selectedIndex }
-        .onChange(of: selectedIndex) { newValue in focusedID = newValue }
+        .onChange(of: selectedIndex) { newValue in
+            withAnimation(.easeInOut) { focusedID = newValue }
+        }
     }
 
-    // MARK: Slider (dead-center with side insets)
+    // MARK: Slider
     @ViewBuilder private var slider: some View {
         if #available(iOS 17.0, *) {
-            GeometryReader { geo in
-                let sideInset = max((geo.size.width - cardWidth) / 2, 0)
-
-                ScrollViewReader { proxy in
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(spacing: Layout.sliderSpacing) {
-                            // side spacers let first/last card sit centered
-                            Color.clear.frame(width: sideInset)
-                            ForEach(Array(items.enumerated()), id: \.offset) { i, item in
-                                CarouselCard(
-                                    urlString: item.imageURL,
-                                    isFocused: (focusedID ?? selectedIndex) == i,
-                                    height: rowHeight,
-                                    width: cardWidth
-                                )
-                                .id(i)
-                                .onTapGesture {
-                                    selectedIndex = i
-                                    focusedID = i
-                                    onTapItem(item)
-                                }
-                            }
-                            Color.clear.frame(width: sideInset)
-                        }
-                        .scrollTargetLayout()
-                    }
-                    .frame(height: rowHeight)
-                    .scrollTargetBehavior(.viewAligned)
-                    .scrollPosition(id: $focusedID)
-                    .onChange(of: focusedID) { newValue in
-                        if let i = newValue, i != selectedIndex {
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: Layout.sliderSpacing) {
+                    ForEach(Array(items.enumerated()), id: \.offset) { i, item in
+                        CarouselCard(
+                            urlString: item.imageURL,
+                            isFocused: (focusedID ?? selectedIndex) == i,
+                            height: rowHeight,
+                            width: cardWidth
+                        )
+                        .id(i)
+                        .onTapGesture {
                             selectedIndex = i
-                        }
-                    }
-                    .onChange(of: selectedIndex) { i in
-                        withAnimation(.easeInOut) {
-                            proxy.scrollTo(i, anchor: .center)
+                            focusedID = i
+                            onTapItem(item)
                         }
                     }
                 }
+                .scrollTargetLayout()
             }
-            .frame(height: rowHeight) // keep geo constrained to row
+            .frame(height: rowHeight)
+            .contentMargins(.horizontal, (UIScreen.main.bounds.width - cardWidth)/2, for: .scrollContent)
+            .scrollTargetBehavior(.viewAligned)
+            .scrollPosition(id: $focusedID)
         } else {
-            // iOS 16 fallback
             TabView(selection: $selectedIndex) {
                 ForEach(Array(items.enumerated()), id: \.offset) { i, item in
                     ImageOnlyCard(urlString: item.imageURL)
@@ -321,6 +319,26 @@ private struct FocusableLayerCarousel: View {
             .tabViewStyle(.page(indexDisplayMode: .automatic))
             .indexViewStyle(.page(backgroundDisplayMode: .interactive))
         }
+    }
+
+    private var centerGuide: some View {
+        Rectangle()
+            .fill(Color.black.opacity(0.06))
+            .frame(width: 1)
+            .allowsHitTesting(false)
+    }
+
+    private var edgeFades: some View {
+        LinearGradient(
+            stops: [
+                .init(color: .clear, location: 0.0),
+                .init(color: .black,  location: 0.08),
+                .init(color: .black,  location: 0.92),
+                .init(color: .clear, location: 1.0)
+            ],
+            startPoint: .leading, endPoint: .trailing
+        )
+        .frame(height: rowHeight)
     }
 
     private var emptyState: some View {
@@ -369,13 +387,10 @@ private struct CarouselCard: View {
     var body: some View {
         ImageOnlyCard(urlString: urlString)
             .frame(width: width, height: height)
-            .scaleEffect(isFocused ? 1.0 : 0.88)
+            .scaleEffect(isFocused ? 1.0 : 0.9)
             .opacity(isFocused ? 1.0 : 0.78)
             .shadow(radius: isFocused ? 2 : 0, y: isFocused ? 1 : 0)
             .contentShape(RoundedRectangle(cornerRadius: Layout.boxCorner))
+            .animation(.easeInOut(duration: 0.18), value: isFocused)
     }
-}
-
-#Preview {
-    ManualSuggestionView(userId: "demo-user")
 }
