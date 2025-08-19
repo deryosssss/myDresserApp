@@ -5,6 +5,7 @@
 //  Created by Derya Baglan on 12/08/2025.
 //
 
+
 import SwiftUI
 
 // Simple layout constants for this screen
@@ -26,14 +27,24 @@ struct PromptSuggestionView: View {
             Text("What are you\nFeeling Today ?")
                 .multilineTextAlignment(.center)
                 .font(AppFont.spicyRice(size: 36))
-                .padding(.top, PSLayout.titleTopPadding)
+                .padding(.top, 200)
 
             HStack(spacing: 12) {
-                TextField("Start Typing", text: $draftPrompt, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.title3)
-                    .frame(minHeight: PSLayout.fieldHeight)
-                    .disableAutocorrection(true)
+                // Custom-styled TextField
+                TextField(
+                    "",
+                    text: $draftPrompt,
+                    prompt: Text("Start Typing").foregroundColor(.brandDarkGrey), axis: .vertical
+                )
+                .font(.title3)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(minHeight: PSLayout.fieldHeight)
+                .background(
+                    RoundedRectangle(cornerRadius: PSLayout.corner)
+                        .fill(Color.brandGrey.opacity(0.8))
+                )
+                .disableAutocorrection(true)
 
                 Button {
                     let prompt = draftPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -46,16 +57,16 @@ struct PromptSuggestionView: View {
                     Image(systemName: "sparkles")
                         .font(.title2)
                         .frame(width: PSLayout.actionSize, height: PSLayout.actionSize)
-                        .background(Color.brandGreen.opacity(0.25))
+                        .background(Color.brandGreen)
                         .clipShape(RoundedRectangle(cornerRadius: PSLayout.corner))
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal)
+            .padding(.horizontal,20)
 
             Text("Example Prompt: all black outfit that is stylish and smart")
                 .font(.footnote)
-                .foregroundColor(.brandPink)
+                .foregroundColor(.brandDarkPink)
                 .padding(.horizontal)
                 .padding(.bottom, 8)
 

@@ -10,6 +10,9 @@ import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
 
+/// ViewModel for collecting and saving the user's shopping habits.
+/// Persists answers into Firestore under the current user's document.
+
 class ShoppingHabitsViewModel: ObservableObject {
     // Shopping frequency options
     let frequencyOptions = [

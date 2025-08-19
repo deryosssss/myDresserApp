@@ -9,6 +9,9 @@ import Foundation
 import FirebaseAuth
 import SwiftUI
 
+/// Drives the Sign In screen: holds form fields, validation,
+/// performs Firebase Auth sign-in, and exposes navigation flags.
+
 class SignInViewModel: ObservableObject {
     @Published var email = ""
     @Published var password = ""

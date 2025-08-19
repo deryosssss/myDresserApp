@@ -7,6 +7,13 @@
 
 import SwiftUI
 
+/// A view that allows users to request a password reset via email.
+/// Displays confirmation and navigation options after sending the reset link.
+///
+/// Before sending → shows email field and “Send Reset Link” button.
+/// After sending → shows a confirmation message and a single “Back to sign in” button.
+/// Uses ForgotPasswordViewModel to handle logic for sending reset emails via Firebase Auth.
+
 struct ForgotPasswordView: View {
     @StateObject var vm = ForgotPasswordViewModel()
     @Environment(\.dismiss) var dismiss // For going back

@@ -9,6 +9,9 @@ import Foundation
 import FirebaseAuth
 import SwiftUI
 
+/// ViewModel that drives the "Forgot password" screen.
+/// Handles email validation, sending the reset request, and UI state (loading/confirmation/errors).
+
 class ForgotPasswordViewModel: ObservableObject {
     @Published var email = ""
     @Published var isLoading = false
@@ -22,6 +25,10 @@ class ForgotPasswordViewModel: ObservableObject {
         !email.isEmpty && !isLoading
     }
 
+    /// Triggers Firebase to send a password-reset email.
+    /// UI behavior is privacy-preserving: shows confirmation regardless of Firebase result
+    /// so attackers can't infer whether an email is registered (prevents email enumeration).
+    
     func sendPasswordReset() {
         errorMessage = ""
         showConfirmation = false

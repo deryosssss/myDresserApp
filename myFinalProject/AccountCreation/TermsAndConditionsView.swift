@@ -8,8 +8,11 @@
 
 import SwiftUI
 
+/// Simple T&Cs screen shown modally from SignUp.
+/// Uses a brand background, a scrollable body, and a single "Back" button.
+
 struct TermsAndConditionsView: View {
-    // Closure or navigation presentation for going back
+    // Dismiss action provided by the presenting context (sheet/stack).
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {

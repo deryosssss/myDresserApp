@@ -7,6 +7,11 @@
 
 import SwiftUI
 
+// TagText.normalize standardizes tag strings.
+// MultiTagEditor lets users add free-form tags, pick from suggestions, search/filter suggestions, and see/remove selected chips. It reports changes back via onToggle / onCustomAdd.
+// WrapChips renders the selected tags as removable chips.
+// FlexibleView is a tiny “flow layout” to wrap chips across lines.
+
 enum TagText {
     static func normalize(_ raw: String) -> String {
         raw.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -7,6 +7,9 @@
 
 import SwiftUI
 
+/// Landing screen that lets the user choose Sign up / Sign in,
+/// or trigger social auth. Navigation is driven by the ViewModel's booleans.
+
 struct SignInUpView: View {
     @StateObject private var vm = SignInUpViewModel()
 

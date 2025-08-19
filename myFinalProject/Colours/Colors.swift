@@ -17,6 +17,7 @@ extension Color {
     static let brandBlue = Color(red: 0.6471, green: 0.898, blue: 1)
     static let brandOrange = Color(red: 0.9765, green: 0.6941, blue: 0.4471)
     static let brandDarkGrey   = Color(red: 0.8392, green: 0.8392, blue: 0.8392)
+    static let brandDarkPink = Color(red: 1, green: 0.4863, blue: 0.9804)
 
     
     

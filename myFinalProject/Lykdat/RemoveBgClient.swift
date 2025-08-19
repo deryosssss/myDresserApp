@@ -9,7 +9,11 @@
 import Foundation
 import UIKit
 
-/// Wraps the remove.bg REST API
+/// Thin wrapper around the remove.bg REST API.
+/// Sends an image, receives a background-removed PNG (cutout).
+///
+///Loads RemoveBgAPIKey from Info.plist, builds a multipart/form-data POST to https://api.remove.bg/v1.0/removebg with the image as image_file, and returns the background-removed PNG via a completion handler.
+///
 class RemoveBgClient: ObservableObject {
     private let apiKey: String = {
         guard let key = Bundle.main

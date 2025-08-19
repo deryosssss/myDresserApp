@@ -6,6 +6,12 @@
 //
 import SwiftUI
 
+/// Sign-in screen for existing users:
+/// - collects email/password
+/// - offers social sign-in shortcuts
+/// - links to Forgot Password and Sign Up flows
+/// - on success navigates to Home
+
 struct SignInView: View {
     @StateObject private var vm = SignInViewModel()
     

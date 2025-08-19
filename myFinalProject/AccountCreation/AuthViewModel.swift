@@ -4,19 +4,30 @@
 //
 //  Created by Derya Baglan on 11/08/2025.
 //
+
+// Tracks the signed-in Firebase user state in real-time.
+// Manages sign-in, sign-up, and sign-out using Firebase Auth.
+// Handles email verification and user data refreshing.
+// Publishes changes to SwiftUI views so they react automatically.
+
 import Foundation
 import FirebaseAuth
 
+// Main actor ensures all UI updates happen on the main thread.
+// ObservableObject allows SwiftUI views to react to changes in @Published properties.
 @MainActor
 final class AuthViewModel: ObservableObject {
+    // The currently signed-in Firebase user (optional because user may be nil if signed out)
     @Published var user: FirebaseAuth.User?
+    // Indicates whether the authentication process is loading (e.g., while waiting for Firebase)
     @Published var isLoading = true
+    // Stores any authentication-related error messages for display in the UI
     @Published var authError: String?
 
     private var listener: AuthStateDidChangeListenerHandle?
 
     init() {
-        // If you want verification emails to use device language:
+        // Configure Firebase Auth to send verification emails in the device's language
         Auth.auth().useAppLanguage()
 
         listener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
@@ -31,13 +42,15 @@ final class AuthViewModel: ObservableObject {
     }
 
     // MARK: - Email/Password
-
+    
+    /// Signs in an existing user using email and password.
     func signIn(email: String, password: String) async {
         authError = nil
         do { _ = try await Auth.auth().signIn(withEmail: email, password: password) }
         catch { authError = error.localizedDescription }
     }
-
+    
+    /// Creates a new user account and sends a verification email.
     func signUp(email: String, password: String) async {
         authError = nil
         do {
@@ -49,10 +62,11 @@ final class AuthViewModel: ObservableObject {
             authError = error.localizedDescription
         }
     }
-
+    /// Signs the current user out.
     func signOut() {
         authError = nil
-        do { try Auth.auth().signOut() }           // RootView will switch back to WelcomeView
+        do { try Auth.auth().signOut() }
+        // Once signed out, UI should transition to WelcomeView automatically
         catch { authError = error.localizedDescription }
     }
 
@@ -75,3 +89,6 @@ final class AuthViewModel: ObservableObject {
         try await u.sendEmailVerification()
     }
 }
+
+
+

@@ -12,6 +12,10 @@ import FirebaseCore
 import FirebaseFirestore
 import FirebaseStorage
 
+/// ViewModel for the first-time profile setup flow:
+/// collects user input, uploads an optional profile photo to Storage,
+/// writes the profile document to Firestore, and drives navigation.
+
 @MainActor
 final class ProfileSetupViewModel: ObservableObject {
     // MARK: - User input
@@ -58,6 +62,10 @@ final class ProfileSetupViewModel: ObservableObject {
     }
 
     // MARK: - Save flow
+    /// Orchestrates the whole save:
+    /// 1) ensure user is signed in
+    /// 2) (optional) upload profile image to Storage
+    /// 3) write profile document to Firestore
     func saveProfile() {
         errorMessage = ""; showSuccess = false; isSaving = true
 
@@ -83,8 +91,11 @@ final class ProfileSetupViewModel: ObservableObject {
     }
 
     // MARK: - Storage
+    /// Simple container for uploaded image metadata.
     private struct Uploaded { let url: String; let path: String }
-
+    
+    /// Compresses and uploads the profile image to Cloud Storage, then fetches a download URL.
+    /// - Uses a centralized `StorageBucket.instance` (your wrapper) to get the Storage reference.
     private func uploadProfileImage(
         _ image: UIImage,
         for user: User,
@@ -118,6 +129,7 @@ final class ProfileSetupViewModel: ObservableObject {
     }
 
     // MARK: - Firestore
+    /// Writes/merges the profile document into `users/{uid}` with server timestamps.
     private func saveProfileDocument(imageURL: String?, imagePath: String?) {
         guard let user = Auth.auth().currentUser else {
             self.errorMessage = "Session expired. Please sign in again."
@@ -148,6 +160,10 @@ final class ProfileSetupViewModel: ObservableObject {
 }
 
 // MARK: - Image utilities
+/// Returns a version of `image` scaled so its longest side is `maxDimension` (or smaller),
+/// preserving aspect ratio. Uses a 1.0 scale (points = pixels) since we control export quality later.
+///
+
 private func imageByScaling(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
     let size = image.size
     let maxSide = max(size.width, size.height)

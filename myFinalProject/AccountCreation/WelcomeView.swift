@@ -6,6 +6,11 @@
 //
 import SwiftUI
 
+/// Splash / welcome screen:
+/// - shows an animated "M" logo + app title
+/// - after a short delay, navigates to SignIn/SignUp
+/// - passes the shared AuthViewModel down via EnvironmentObject
+
 struct WelcomeView: View {
     @EnvironmentObject var auth: AuthViewModel   // <— add this
     @State private var showSignInUp = false

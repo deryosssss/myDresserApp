@@ -7,6 +7,9 @@
 
 import SwiftUI
 
+/// Screen that instructs the user to check their inbox and
+/// lets them resend the verification email or confirm they've already verified.
+
 struct EmailVerificationView: View {
     @ObservedObject var vm: EmailVerificationViewModel
 
@@ -86,5 +89,4 @@ struct EmailVerificationView: View {
             }
         }
     }
-
 }

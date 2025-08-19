@@ -1,5 +1,10 @@
 import SwiftUI
 
+/// First-time profile setup screen:
+/// - lets the user add a photo
+/// - collects first/last/user names, DOB, and gender presentation
+/// - saves via the VM and navigates to ShoppingHabitsView on success
+///
 struct ProfileSetupView: View {
     @StateObject private var vm = ProfileSetupViewModel()
 
@@ -15,7 +20,7 @@ struct ProfileSetupView: View {
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity, alignment: .center)
 
-                    // Profile picture
+// --- Profile picture picker ----------------------------------------------------
                     ZStack(alignment: .bottomTrailing) {
                         Group {
                             if let image = vm.profileImage {
@@ -44,7 +49,7 @@ struct ProfileSetupView: View {
                     .sheet(isPresented: $vm.showImagePicker) {
                         ImagePicker(image: $vm.profileImage)
                     }
-
+// --- Text fields & pickers ----------------------------------------------------
                     VStack(spacing: 14) {
                         TextField("First name *", text: $vm.firstName)
                             .textFieldStyle(ProfileTextFieldStyle())
@@ -116,6 +121,7 @@ struct ProfileSetupView: View {
                     }
                     .padding(.horizontal, 24)
 
+// --- Validation feedback ------------------------------------------------------
                     if !vm.errorMessage.isEmpty {
                         Text(vm.errorMessage)
                             .foregroundColor(.red)

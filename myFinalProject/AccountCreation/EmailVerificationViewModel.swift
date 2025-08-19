@@ -4,8 +4,16 @@
 //
 //  Created by Derya Baglan on 30/07/2025.
 //
+
+// resendEmail() → Sends a fresh verification link and shows a success/error message.
+// confirmedEmail() → Reloads the Firebase user to check verification status; if verified, sets goToProfileSetup = true to trigger navigation.
+// Works hand-in-hand with EmailVerificationView to display feedback and handle user actions.
+                                                                                
 import Foundation
 import FirebaseAuth
+
+/// ViewModel that manages the email verification process.
+/// Handles resending the verification email and checking if the user has verified.
 
 class EmailVerificationViewModel: ObservableObject {
     let email: String

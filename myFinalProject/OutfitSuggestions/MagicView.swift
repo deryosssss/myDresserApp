@@ -105,6 +105,41 @@ struct MagicView: View {
                 spacing: 15
             ) {
                 NavigationLink {
+                    ManualSuggestionView(userId: Auth.auth().currentUser?.uid ?? "")
+                } label: {
+                    ActionCardView(
+                        title: "Manual outfit\ncreation",
+                        symbol: "square.and.pencil",
+                        gradient: [.brandPink, .brandPeach],
+                        textColor: .black,
+                        height: cardHeight
+                    )
+                }
+                NavigationLink {
+                    PromptSuggestionView(userId: Auth.auth().currentUser?.uid ?? "demo-user")
+                } label: {
+                    ActionCardView(
+                        title: "Prompt based\noutfit suggestions",
+                        symbol: "sparkles.rectangle.stack",
+                        gradient: [.brandOrange, .brandYellow],
+                        textColor: .black,
+                        height: cardHeight
+                    )
+                }
+                NavigationLink {
+                    let uid = Auth.auth().currentUser?.uid ?? "demo-user"
+                    DressCodeSuggestionView(userId: uid)   // <-- correct initializer
+                } label: {
+                    ActionCardView(
+                        title: "Outfit ideas\nfor the dress code",
+                        symbol: "tshirt",
+                        gradient: [.brandGreen, .brandYellow],
+                        textColor: .black,
+                        height: cardHeight
+                    )
+                }
+                
+                NavigationLink {
                     WeatherSuggestionView(
                         userId: Auth.auth().currentUser?.uid ?? "preview-user",
                         lat: vm.latitude ?? 0,
@@ -123,43 +158,7 @@ struct MagicView: View {
                         height: cardHeight
                     )
                 }
-
-                NavigationLink {
-                    let uid = Auth.auth().currentUser?.uid ?? "demo-user"
-                    DressCodeSuggestionView(userId: uid)   // <-- correct initializer
-                } label: {
-                    ActionCardView(
-                        title: "Outfit ideas\nfor the dress code",
-                        symbol: "tshirt",
-                        gradient: [.brandGreen, .brandYellow],
-                        textColor: .black,
-                        height: cardHeight
-                    )
-                }
                 
-                NavigationLink {
-                    PromptSuggestionView(userId: Auth.auth().currentUser?.uid ?? "demo-user")
-                } label: {
-                    ActionCardView(
-                        title: "Prompt based\noutfit suggestions",
-                        symbol: "sparkles.rectangle.stack",
-                        gradient: [.brandOrange, .brandYellow],
-                        textColor: .black,
-                        height: cardHeight
-                    )
-                }
-                
-                NavigationLink {
-                    ManualSuggestionView(userId: Auth.auth().currentUser?.uid ?? "")
-                } label: {
-                    ActionCardView(
-                        title: "Manual outfit\ncreation",
-                        symbol: "square.and.pencil",
-                        gradient: [.brandPink, .brandPeach],
-                        textColor: .black,
-                        height: cardHeight
-                    )
-                }
             }
         }
         .padding(20)

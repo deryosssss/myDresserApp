@@ -12,6 +12,12 @@ import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
 
+/// Drives the email/password sign-up flow:
+/// - validates inputs (email, password strength, terms)
+/// - creates a Firebase Auth user
+/// - seeds a minimal Firestore user document
+/// - sends a verification email and navigates to the verification screen
+
 final class SignupFlowViewModel: ObservableObject {
     // Inputs
     @Published var email: String = ""
@@ -35,6 +41,8 @@ final class SignupFlowViewModel: ObservableObject {
     }
 
     // MARK: - Sign up
+    /// Validates inputs, creates a Firebase user, seeds Firestore, and kicks off email verification.
+    
     func signUp() {
         errorMessage = ""
 
@@ -89,10 +97,11 @@ final class SignupFlowViewModel: ObservableObject {
     }
 
     // MARK: - Password helpers
+    /// At least one A–Z
     private func containsUppercase(_ text: String) -> Bool {
         text.rangeOfCharacter(from: .uppercaseLetters) != nil
     }
-
+    /// At least one digit OR symbol/punctuation
     private func containsNumberOrSymbol(_ text: String) -> Bool {
         text.rangeOfCharacter(from: .decimalDigits) != nil ||
         text.rangeOfCharacter(from: CharacterSet.symbols.union(.punctuationCharacters)) != nil

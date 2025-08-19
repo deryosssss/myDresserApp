@@ -8,8 +8,12 @@
 import SwiftUI
 import Photos
 
-// MARK: - ImagePicker (camera)
+// MARK: - ImagePicker (camera / photo library bridge)
+/// A SwiftUI wrapper around `UIImagePickerController`.
+/// Use it to let users pick an image from the camera or photo library and bind the result to SwiftUI state.
+///
 struct ImagePicker: UIViewControllerRepresentable {
+    /// Where to source the image from: `.camera` or `.photoLibrary`.
     var sourceType: UIImagePickerController.SourceType = .photoLibrary
     @Binding var image: UIImage?
     @Environment(\.presentationMode) private var presentation
@@ -22,9 +26,11 @@ struct ImagePicker: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
-
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
+    // MARK: - Coordinator
+    /// Handles UINavigationController & UIImagePickerController delegate callbacks.
+    
     class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
         let parent: ImagePicker
         init(_ parent: ImagePicker) { self.parent = parent }

@@ -6,6 +6,13 @@
 //
 
 import Foundation
+/// A shared set of field identifiers used anywhere the app edits a single value
+/// (e.g., `size`) or a list/multi-select value (e.g., `colours`, `customTags`).
+/// Conforms to:
+/// - `RawRepresentable` via `String` raw values (auto-uses the case name)
+/// - `CaseIterable` so you can iterate all fields
+/// - `Identifiable` so it can be used directly in SwiftUI lists
+/// - `CustomStringConvertible` to provide a human-readable label via `description`
 
 /// Shared enum for any view that needs to edit a single or list field.
 enum EditableField: String, CaseIterable, Identifiable, CustomStringConvertible {

@@ -7,7 +7,6 @@
 //
 
 
-
 import SwiftUI
 
 enum DressCodeOption: String, CaseIterable, Identifiable {

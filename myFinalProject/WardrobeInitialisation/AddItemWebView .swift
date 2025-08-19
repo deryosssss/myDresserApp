@@ -78,7 +78,7 @@ struct AddItemWebView: View {
         .overlay(
             VStack {
                 if taggingVM.isLoading {
-                    ProgressView("Tagging…")
+                    ProgressView("Saving…")
                 }
                 if let error = taggingVM.errorMessage {
                     Text(error)

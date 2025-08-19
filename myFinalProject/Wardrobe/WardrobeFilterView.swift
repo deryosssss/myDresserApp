@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-// MARK: — Color extension for brightness & contrast
+// MARK: — Color extension for brightness & contrast (used by chips if needed)
 extension Color {
     func brightness() -> Double {
         #if canImport(UIKit)
@@ -24,14 +24,12 @@ extension Color {
     }
 }
 
-
 struct WardrobeFilterView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var vm: WardrobeViewModel
 
-    // MARK: – Filter state
+    // MARK: – Local filter UI state
     @State private var selectedCategory: String = "All"
-    @State private var sortBy: String = "Newest"
     @State private var selectedColours: Set<String> = []
     @State private var selectedTags: Set<String> = []
     @State private var selectedDressCode: String = "Any"
@@ -41,14 +39,13 @@ struct WardrobeFilterView: View {
 
     // MARK: – Static options
     private let categories  = ["All", "Top", "Outerwear", "Dress", "Bottoms", "Footwear"]
-    private let sortOptions = ["Newest", "Oldest", "A → Z", "Z → A"]
     private let tags        = ["Casual", "Formal", "Party", "Sport", "Travel", "Work"]
     private let dressCodes  = ["Any", "Casual", "Business", "Black Tie"]
     private let seasons     = ["All", "Spring", "Summer", "Autumn", "Winter"]
     private let sizes       = ["Any", "XS", "S", "M", "L", "XL"]
     private let materials   = ["Any", "Cotton", "Silk", "Denim", "Leather", "Wool"]
 
-    // MARK: – Colour mapping
+    // MARK: – Colour mapping for common names
     private let colourMap: [String: Color] = [
         "Black": .black,
         "White": .white,
@@ -59,7 +56,7 @@ struct WardrobeFilterView: View {
         "Pink": .pink
     ]
 
-    // MARK: – Dynamic colours from user’s wardrobe items
+    // MARK: – Dynamic colours from user’s wardrobe items (names)
     private var dynamicColours: [String] {
         Array(Set(vm.items.flatMap { $0.colours })).sorted()
     }
@@ -73,13 +70,6 @@ struct WardrobeFilterView: View {
                 ScrollView {
                     VStack(spacing: 24) {
                         dropdownSection(title: "Category", selection: $selectedCategory, options: categories)
-                        dropdownSection(title: "Sort by",   selection: $sortBy,           options: sortOptions)
-
-                        colourPickerSection(
-                            title:       "Colours",
-                            options:     dynamicColours,
-                            selection:   $selectedColours
-                        )
 
                         multiSelectChips(
                             title:     "Tags",
@@ -91,6 +81,11 @@ struct WardrobeFilterView: View {
                         dropdownSection(title: "Season",     selection: $selectedSeason,     options: seasons)
                         dropdownSection(title: "Size",       selection: $selectedSize,       options: sizes)
                         dropdownSection(title: "Material",   selection: $selectedMaterial,   options: materials)
+                        colourPickerSection(
+                            title:       "Colours",
+                            options:     dynamicColours,
+                            selection:   $selectedColours
+                        )
                     }
                     .padding()
                 }
@@ -115,6 +110,17 @@ struct WardrobeFilterView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Reset", action: resetFilters)
                 }
+            }
+            .onAppear {
+                // Pre-fill the sheet from the current VM filters
+                let f = vm.filters
+                selectedCategory  = f.category
+                selectedColours   = f.colours
+                selectedTags      = f.tags
+                selectedDressCode = f.dressCode
+                selectedSeason    = f.season
+                selectedSize      = f.size
+                selectedMaterial  = f.material
             }
         }
     }
@@ -148,7 +154,7 @@ struct WardrobeFilterView: View {
         }
     }
 
-    // MARK: — Colour picker as circles, white gets thin gray border
+    // MARK: — Colour picker as circles (white gets thin gray border)
     private func colourPickerSection(
         title:      String,
         options:    [String],
@@ -161,6 +167,7 @@ struct WardrobeFilterView: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 12)], spacing: 12) {
                 ForEach(options, id: \.self) { opt in
+                    // Use our simple name map; fall back to gray (or Color(hex:) if your names are hex)
                     let clr = colourMap[opt] ?? Color(hex: opt) ?? .gray
                     let isSelected = selection.wrappedValue.contains(opt)
                     Circle()
@@ -168,11 +175,9 @@ struct WardrobeFilterView: View {
                         .frame(width: 36, height: 36)
                         .overlay(
                             ZStack {
-                                // always show thin border for white
                                 if clr == .white {
                                     Circle().stroke(Color.gray, lineWidth: 1)
                                 }
-                                // highlight selection
                                 if isSelected {
                                     Circle().stroke(Color.blue, lineWidth: 3)
                                 }
@@ -225,19 +230,29 @@ struct WardrobeFilterView: View {
     }
 
     // MARK: — Reset & Apply
+
     private func resetFilters() {
-        selectedCategory   = "All"
-        sortBy             = "Newest"
+        selectedCategory  = "All"
         selectedColours.removeAll()
         selectedTags.removeAll()
-        selectedDressCode  = "Any"
-        selectedSeason     = "All"
-        selectedSize       = "Any"
-        selectedMaterial   = "Any"
+        selectedDressCode = "Any"
+        selectedSeason    = "All"
+        selectedSize      = "Any"
+        selectedMaterial  = "Any"
+
+        vm.filters = .default
     }
 
     private func applyFilters() {
-        // TODO: wire these back into your VM
+        vm.filters = WardrobeFilters(
+            category:  selectedCategory,
+            colours:   selectedColours,
+            tags:      selectedTags,
+            dressCode: selectedDressCode,
+            season:    selectedSeason,
+            size:      selectedSize,
+            material:  selectedMaterial
+        )
         dismiss()
     }
 }

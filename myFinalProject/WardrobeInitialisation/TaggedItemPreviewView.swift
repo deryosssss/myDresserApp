@@ -40,12 +40,52 @@ struct TaggedItemPreviewView: View {
     @State private var editingField: EditableField?
     @State private var draftText = ""
 
+    // NEW — show a small info banner letting the user know we auto-categorised
+    @State private var showAutoBanner: Bool = true
+
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
                 Text("Review & Save")
                     .font(AppFont.spicyRice(size: 28))
                     .padding(.top)
+
+                // Info banner (dismissible)
+                if showAutoBanner {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "info.circle.fill")
+                            .imageScale(.large)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Auto-categorised")
+                                .font(.subheadline).bold()
+                            Text("We automatically categorised and tagged this item. Please review the details below and make any changes before saving.")
+                                .font(.footnote)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Spacer()
+
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) { showAutoBanner = false }
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.footnote.weight(.semibold))
+                                .padding(8)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Dismiss info")
+                    }
+                    .padding(12)
+                    .background(Color.blue.opacity(0.12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.blue.opacity(0.25), lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
 
                 Image(uiImage: originalImage)
                     .resizable()
@@ -77,22 +117,22 @@ struct TaggedItemPreviewView: View {
                     }
                 }
 
-                ChipRowView(title: "Category",      text: taggingVM.category)     { startEditing(.category) }
-                ChipRowView(title: "Sub Category",  text: taggingVM.subcategory)  { startEditing(.subcategory) }
-                ChipRowView(title: "Length",        text: taggingVM.length)       { startEditing(.length) }
-                ChipRowView(title: "Style",         text: taggingVM.style)        { startEditing(.style) }
+                ChipRowView(title: "Category",         text: taggingVM.category)      { startEditing(.category) }
+                ChipRowView(title: "Sub Category",     text: taggingVM.subcategory)   { startEditing(.subcategory) }
+                ChipRowView(title: "Length",           text: taggingVM.length)        { startEditing(.length) }
+                ChipRowView(title: "Style",            text: taggingVM.style)         { startEditing(.style) }
                 ChipRowView(title: "Design / Pattern", text: taggingVM.designPattern) { startEditing(.designPattern) }
-                ChipRowView(title: "Closure",       text: taggingVM.closureType)  { startEditing(.closureType) }
-                ChipRowView(title: "Fit",           text: taggingVM.fit)          { startEditing(.fit) }
-                ChipRowView(title: "Material",      text: taggingVM.material)     { startEditing(.material) }
+                ChipRowView(title: "Closure",          text: taggingVM.closureType)   { startEditing(.closureType) }
+                ChipRowView(title: "Fit",              text: taggingVM.fit)           { startEditing(.fit) }
+                ChipRowView(title: "Material",         text: taggingVM.material)      { startEditing(.material) }
 
                 ChipSectionView(title: "Custom Tags", chips: taggingVM.tags) { startEditing(.customTags) }
-                ChipRowView(title: "Dress Code",     text: taggingVM.dressCode)   { startEditing(.dressCode) }
-                ChipRowView(title: "Season",         text: taggingVM.season)      { startEditing(.season) }
-                ChipRowView(title: "Size",           text: taggingVM.size)        { startEditing(.size) }
-                ChipSectionView(title: "Mood Tags",  chips: taggingVM.moodTags)   { startEditing(.moodTags) }
+                ChipRowView(title: "Dress Code",       text: taggingVM.dressCode)   { startEditing(.dressCode) }
+                ChipRowView(title: "Season",           text: taggingVM.season)      { startEditing(.season) }
+                ChipRowView(title: "Size",             text: taggingVM.size)        { startEditing(.size) }
+                ChipSectionView(title: "Mood Tags",    chips: taggingVM.moodTags)   { startEditing(.moodTags) }
 
-                // MARK: — NEW: Small section for Source / Gender / Favorite (minimal UI change)
+                // MARK: — More (Source / Gender / Favorite)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("More").bold().padding(.horizontal)
 
@@ -133,6 +173,7 @@ struct TaggedItemPreviewView: View {
                 }
                 .padding(.top, 4)
 
+                // Actions
                 HStack(spacing: 12) {
                     Button("Delete") {
                         taggingVM.clearAll()
@@ -172,7 +213,7 @@ struct TaggedItemPreviewView: View {
                 listAddBindings:    listAddBindings,
                 listRemoveBindings: listRemoveBindings,
                 listReadBindings:   listReadBindings,
-                currentCategory:    { taggingVM.category }  
+                currentCategory:    { taggingVM.category }  // helps show category-aware suggestions
             )
         }
     }
@@ -183,18 +224,18 @@ struct TaggedItemPreviewView: View {
         switch field {
         case .colours, .customTags, .moodTags:
             draftText = ""
-        case .category:    draftText = taggingVM.category
-        case .subcategory: draftText = taggingVM.subcategory
-        case .length:      draftText = taggingVM.length
-        case .style:       draftText = taggingVM.style
+        case .category:      draftText = taggingVM.category
+        case .subcategory:   draftText = taggingVM.subcategory
+        case .length:        draftText = taggingVM.length
+        case .style:         draftText = taggingVM.style
         case .designPattern: draftText = taggingVM.designPattern
-        case .closureType: draftText = taggingVM.closureType
-        case .fit:         draftText = taggingVM.fit
-        case .material:    draftText = taggingVM.material
-        case .dressCode:   draftText = taggingVM.dressCode
-        case .season:      draftText = taggingVM.season
-        case .size:        draftText = taggingVM.size
-        default:           draftText = ""
+        case .closureType:   draftText = taggingVM.closureType
+        case .fit:           draftText = taggingVM.fit
+        case .material:      draftText = taggingVM.material
+        case .dressCode:     draftText = taggingVM.dressCode
+        case .season:        draftText = taggingVM.season
+        case .size:          draftText = taggingVM.size
+        default:             draftText = ""
         }
         editingField = field
     }

@@ -5,9 +5,9 @@
 //  Created by Derya Baglan on 12/08/2025.
 //
 
-
 import SwiftUI
 
+// Layout constants for the suggestion UI
 private enum WXLayout {
     static let cardCorner: CGFloat = 14
     static let cardPadding: CGFloat = 12
@@ -16,6 +16,7 @@ private enum WXLayout {
     static let buttonHeight: CGFloat = 28
 }
 
+// Shared date formatter for the header date
 private let fullDateFormatter: DateFormatter = {
     let f = DateFormatter()
     f.dateStyle = .medium
@@ -23,17 +24,23 @@ private let fullDateFormatter: DateFormatter = {
     return f
 }()
 
+/// Presents weather-aware outfit suggestions as cards:
+/// - Header shows temperature + icon + date
+/// - List of suggestion cards (Skip/Save)
+/// - On Save → opens preview sheet to confirm + persist
 struct WeatherSuggestionView: View {
+    // Orchestrator for fetching API/local candidates and persisting outfits
     @StateObject private var vm: WeatherSuggestionViewModel
 
-    // preview sheet
+    // Preview sheet state
     @State private var previewItems: [WardrobeItem] = []
     @State private var showPreview = false
 
-    // If you let the user pick another day, bind it here.
+    // Optional: if user picks a different day; displayed in header
     @State private var selectedDate: Date? = nil
 
-    /// Pass temperature (e.g. "23°C") and an optional weather icon image from your OpenWeather VM.
+    /// Injects context (user, location, rain flag) and header visuals
+    /// `vm` is created here so it lives as long as this view.
     init(
         userId: String,
         lat: Double,
@@ -59,17 +66,19 @@ struct WeatherSuggestionView: View {
             ZStack {
                 ScrollView {
                     VStack(spacing: 16) {
-                        // ===== Header (centered, slightly higher) =====
+                        // ===== Header (centered) =====
                         header
                             .padding(.horizontal)
-                            .padding(.top, 2)  // a little higher than before
+                            .padding(.top, 2)
 
                         // ===== Cards =====
                         if vm.cards.isEmpty && !vm.isLoading {
+                            // When no suggestions (and not loading), show a gentle empty state
                             emptyState
                                 .padding(.horizontal)
                                 .padding(.top, 24)
                         } else {
+                            // Render each suggestion card; "Save" triggers preview sheet
                             ForEach(vm.cards) { card in
                                 SuggestionCard(
                                     candidate: card,
@@ -93,10 +102,16 @@ struct WeatherSuggestionView: View {
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
+
+            // Kick off initial load once when the view appears
             .task { await vm.loadInitial() }
+
+            // Simple error alert (dismiss resets message)
             .alert("Error", isPresented: .constant(vm.errorMessage != nil)) {
                 Button("OK") { vm.errorMessage = nil }
             } message: { Text(vm.errorMessage ?? "") }
+
+            // Preview sheet → allows naming/confirming, then saving the outfit
             .sheet(isPresented: $showPreview) {
                 OutfitPreviewSheet(
                     items: previewItems,
@@ -120,6 +135,7 @@ struct WeatherSuggestionView: View {
     }
 
     // MARK: Header (centered)
+    /// Temperature + icon + date (uses vm’s values; `selectedDate` overrides display if set)
     private var header: some View {
         VStack(spacing: 4) {
             HStack(spacing: 10) {
@@ -129,6 +145,7 @@ struct WeatherSuggestionView: View {
                             .resizable()
                             .frame(width: 42, height: 42)
                     } else {
+                        // Fallback symbol when no icon image supplied
                         Image(systemName: "cloud.sun")
                             .symbolRenderingMode(.multicolor)
                             .font(.system(size: 36))
@@ -145,10 +162,11 @@ struct WeatherSuggestionView: View {
                 .font(AppFont.spicyRice(size: 20))
                 .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity) // centers the stack in the scroll width
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: Empty state
+    /// Friendly prompt to populate wardrobe or retry loading
     private var emptyState: some View {
         VStack(spacing: 8) {
             Image(systemName: "tshirt")
@@ -182,11 +200,13 @@ struct WeatherSuggestionView: View {
 
 // MARK: - Card
 
+/// Renders a grid of thumbnails for the candidate items + Skip/Save actions.
 private struct SuggestionCard: View {
     let candidate: WeatherOutfitCandidate
     var onSkip: () -> Void
     var onSave: () -> Void
 
+    // 2-up grid for item thumbnails
     private let cols = [
         GridItem(.flexible(), spacing: WXLayout.gridSpacing),
         GridItem(.flexible(), spacing: WXLayout.gridSpacing)
@@ -194,6 +214,7 @@ private struct SuggestionCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // Thumbnails (ordered for a tidy look)
             LazyVGrid(columns: cols, spacing: WXLayout.gridSpacing) {
                 ForEach(candidate.orderedItems, id: \.id) { item in
                     AsyncImage(url: URL(string: item.imageURL)) { phase in
@@ -216,6 +237,7 @@ private struct SuggestionCard: View {
                 }
             }
 
+            // Actions: Skip (pink) / Save (green)
             HStack(spacing: 10) {
                 Button(role: .cancel, action: onSkip) {
                     Text("Skip")

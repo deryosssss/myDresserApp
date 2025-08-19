@@ -35,7 +35,10 @@ struct WardrobeItem: Identifiable, Codable {
     var season: String
     var size: String
 
+    /// User-facing names (display order)
     var colours: [String]
+    /// Backend lookup used to render chip background colors
+    var colorHexByName: [String:String] = [:]
     var customTags: [String]
     var moodTags: [String]
 
@@ -66,6 +69,7 @@ struct WardrobeItem: Identifiable, Codable {
         season: String,
         size: String,
         colours: [String],
+        colorHexByName: [String:String] = [:],   // ✅ accept map
         customTags: [String],
         moodTags: [String],
         // NEW with sensible defaults
@@ -92,6 +96,7 @@ struct WardrobeItem: Identifiable, Codable {
         self.season = season
         self.size = size
         self.colours = colours
+        self.colorHexByName = colorHexByName    // ✅ store map
         self.customTags = customTags
         self.moodTags = moodTags
         self.isFavorite = isFavorite
@@ -117,11 +122,12 @@ struct WardrobeItem: Identifiable, Codable {
             "season": season,
             "size": size,
             "colours": colours,
+            "colorHexByName": colorHexByName,   // ✅ persist map
             "customTags": customTags,
             "moodTags": moodTags,
-            "isFavorite": isFavorite,               // NEW
-            "sourceType": sourceType.rawValue,      // NEW
-            "gender": gender,                       // NEW
+            "isFavorite": isFavorite,           // NEW
+            "sourceType": sourceType.rawValue,  // NEW
+            "gender": gender,                   // NEW
             "addedAt": FieldValue.serverTimestamp()
         ]
         if let imagePath { data["imagePath"] = imagePath }
@@ -149,11 +155,12 @@ extension WardrobeItem {
             "season": season,
             "size": size,
             "colours": colours,
+            "colorHexByName": colorHexByName,   // ✅ persist map on updates
             "customTags": customTags,
             "moodTags": moodTags,
-            "isFavorite": isFavorite,                 // NEW
-            "sourceType": sourceType.rawValue,        // NEW
-            "gender": gender                          // NEW
+            "isFavorite": isFavorite,           // NEW
+            "sourceType": sourceType.rawValue,  // NEW
+            "gender": gender                    // NEW
         ]
 
         if let imagePath {

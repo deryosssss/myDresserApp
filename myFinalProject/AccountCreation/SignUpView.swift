@@ -7,6 +7,12 @@
 
 import SwiftUI
 
+/// Email/password sign-up screen:
+/// - collects email + password + confirm
+/// - shows T&Cs consent
+/// - provides (placeholder) social sign-in buttons
+/// - navigates to Email Verification on success
+
 struct SignUpView: View {
     @StateObject private var vm = SignupFlowViewModel()
 

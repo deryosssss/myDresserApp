@@ -1,4 +1,3 @@
-//
 //  WeatherSuggestionViewModel .swift
 //  myFinalProject
 //
@@ -9,6 +8,7 @@ import Foundation
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
+
 
 // MARK: - WeatherWear API models
 
@@ -31,7 +31,9 @@ final class WeatherWearClient {
     /// Replace with your real WeatherWear base URL if different.
     private let base = URL(string: "https://weatherwear.fly.dev")!
     var authToken: String? = nil
-
+    
+    /// GET /outfit-suggestions?latitude=...&longitude=...
+    /// Returns a list of garments suited for current weather at the provided coords.
     func suggestOutfit(lat: Double, lon: Double) async throws -> WeatherWearResponse {
         var comps = URLComponents(url: base.appendingPathComponent("/outfit-suggestions"),
                                   resolvingAgainstBaseURL: false)!
@@ -53,10 +55,13 @@ final class WeatherWearClient {
 }
 
 // MARK: - Card / candidate
+// A single suggested outfit: one item per logical "layer".
 
 struct WeatherOutfitCandidate: Identifiable, Equatable {
     let id = UUID()
     var itemsByKind: [LayerKind: WardrobeItem]
+    /// Dress code “locked” for this recommendation (helps debugging / UI later)
+    var dressCode: String?
 
     var orderedItems: [WardrobeItem] {
         var arr: [WardrobeItem] = []
@@ -76,6 +81,10 @@ struct WeatherOutfitCandidate: Identifiable, Equatable {
 }
 
 // MARK: - ViewModel
+// Orchestrates weather-aware outfit suggestions, now with DRESS CODE COHESION:
+// - We “lock” a dress code from the first meaningful item (dress or top/bottom)
+// - Every subsequent pick is filtered to that same dress code
+// - If none has a dress code, we fall back gracefully
 
 @MainActor
 final class WeatherSuggestionViewModel: ObservableObject {
@@ -96,7 +105,7 @@ final class WeatherSuggestionViewModel: ObservableObject {
     let isRaining: Bool
 
     private let client = WeatherWearClient()
-    private let store  = ManualSuggestionStore() // reuse strict layer filters
+    private let store  = ManualSuggestionStore()
 
     init(
         userId: String,
@@ -141,6 +150,7 @@ final class WeatherSuggestionViewModel: ObservableObject {
         }
     }
 
+    /// Removes a card and fetches a replacement (API first, then local).
     func skip(_ cardID: WeatherOutfitCandidate.ID) async {
         cards.removeAll { $0.id == cardID }
 
@@ -155,6 +165,7 @@ final class WeatherSuggestionViewModel: ObservableObject {
     }
 
     // MARK: Save (after preview confirms)
+    /// Persists the chosen outfit to Firestore under the user's document.
 
     func saveOutfit(name: String,
                     occasion: String?,
@@ -216,37 +227,38 @@ final class WeatherSuggestionViewModel: ObservableObject {
             }
 
             var picked: [LayerKind: WardrobeItem] = [:]
+            var targetDressCode: String? = nil
 
-            // Always include shoes; prefer boots if raining
-            if let shoes = try await pickItem(kind: .shoes, preferBoots: isRaining) {
-                picked[.shoes] = shoes
-            }
-
-            // Fill the base from API hints (dress OR top/bottom)
-            for kind in mappedKinds {
-                if let it = try await pickItem(kind: kind, preferBoots: false) {
-                    picked[kind] = it
-                }
-            }
-
-            // If API didn't give a base, build one locally
-            if picked[.dress] == nil && (picked[.top] == nil || picked[.bottom] == nil) {
-                if let dress = try await pickItem(kind: .dress, preferBoots: false) {
+            // ====== BASE FIRST (seed the dress code) ======
+            if mappedKinds.contains(.dress) {
+                if let dress = try await pickItem(kind: .dress, lockingDressCode: &targetDressCode, preferBoots: false) {
                     picked[.dress] = dress
-                } else if
-                    let top = try await pickItem(kind: .top, preferBoots: false),
-                    let bottom = try await pickItem(kind: .bottom, preferBoots: false) {
+                }
+            } else {
+                // Try top + bottom as base
+                if let top = try await pickItem(kind: .top, lockingDressCode: &targetDressCode, preferBoots: false) {
                     picked[.top] = top
+                }
+                if let bottom = try await pickItem(kind: .bottom, lockingDressCode: &targetDressCode, preferBoots: false) {
                     picked[.bottom] = bottom
                 }
             }
 
-            // Add optional layers (outerwear/bag/accessory) with probabilities,
-            // keeping total item count between 2...5.
-            picked = await addOptionals(to: picked)
+            // If we still don't have a base, abandon this API try
+            if picked[.dress] == nil && (picked[.top] == nil || picked[.bottom] == nil) {
+                return nil
+            }
+
+            // ====== SHOES (respect dress code; prefer boots if raining) ======
+            if let shoes = try await pickItem(kind: .shoes, lockingDressCode: &targetDressCode, preferBoots: isRaining) {
+                picked[.shoes] = shoes
+            }
+
+            // ====== Additional layers (still locking dress code) ======
+            picked = await addOptionals(to: picked, lockingDressCode: &targetDressCode)
 
             guard picked.isEmpty == false else { return nil }
-            return WeatherOutfitCandidate(itemsByKind: picked)
+            return WeatherOutfitCandidate(itemsByKind: picked, dressCode: targetDressCode)
         } catch {
             print("[WeatherSuggest] API error:", error)
             return nil
@@ -255,35 +267,42 @@ final class WeatherSuggestionViewModel: ObservableObject {
 
     /// Local fallback if API returns nothing: build Dress+Shoes if possible,
     /// otherwise Top+Bottom+Shoes; then add optional layers probabilistically.
+    /// Dress code cohesion is enforced by locking the first base item's dress code.
     private func generateLocalCandidate() async -> WeatherOutfitCandidate? {
         var items: [LayerKind: WardrobeItem] = [:]
+        var targetDressCode: String? = nil
 
-        // Shoes first (boots if raining)
-        if let shoes = try? await pickItem(kind: .shoes, preferBoots: isRaining) {
+        // Base: Dress OR Top+Bottom (seed dress code here)
+        if let dress = try? await pickItem(kind: .dress, lockingDressCode: &targetDressCode, preferBoots: false) {
+            items[.dress] = dress
+        } else {
+            if let top = try? await pickItem(kind: .top, lockingDressCode: &targetDressCode, preferBoots: false) {
+                items[.top] = top
+            }
+            if let bottom = try? await pickItem(kind: .bottom, lockingDressCode: &targetDressCode, preferBoots: false) {
+                items[.bottom] = bottom
+            }
+            // If we couldn't form a base, bail
+            if items[.dress] == nil && (items[.top] == nil || items[.bottom] == nil) {
+                return nil
+            }
+        }
+
+        // Shoes (respect current target dress code; prefer boots if raining)
+        if let shoes = try? await pickItem(kind: .shoes, lockingDressCode: &targetDressCode, preferBoots: isRaining) {
             items[.shoes] = shoes
         }
 
-        // Base: Dress OR Top+Bottom
-        if let dress = try? await pickItem(kind: .dress, preferBoots: false) {
-            items[.dress] = dress
-        } else if
-            let top = (try? await pickItem(kind: .top, preferBoots: false)),
-            let bottom = (try? await pickItem(kind: .bottom, preferBoots: false)) {
-            items[.top] = top
-            items[.bottom] = bottom
-        } else {
-            return nil
-        }
+        // Optionals (respect locked dress code)
+        items = await addOptionals(to: items, lockingDressCode: &targetDressCode)
 
-        // Optionals
-        items = await addOptionals(to: items)
-
-        return WeatherOutfitCandidate(itemsByKind: items)
+        return WeatherOutfitCandidate(itemsByKind: items, dressCode: targetDressCode)
     }
 
     /// Tries to add outerwear/bag/accessory with weather-aware probabilities
-    /// while keeping total items in 2...5 range.
-    private func addOptionals(to base: [LayerKind: WardrobeItem]) async -> [LayerKind: WardrobeItem] {
+    /// while keeping total items in 2...5 range and **respecting the locked dress code**.
+    private func addOptionals(to base: [LayerKind: WardrobeItem],
+                              lockingDressCode targetDressCode: inout String?) async -> [LayerKind: WardrobeItem] {
         var items = base
         let maxItems = 5
         let minItems = 2
@@ -298,25 +317,25 @@ final class WeatherSuggestionViewModel: ObservableObject {
 
         // Outerwear
         if items.count < maxItems, items[.outerwear] == nil, coin(outerwearP),
-           let coat = try? await pickItem(kind: .outerwear, preferBoots: false) {
+           let coat = try? await pickItem(kind: .outerwear, lockingDressCode: &targetDressCode, preferBoots: false) {
             items[.outerwear] = coat
         }
 
         // Bag
         if items.count < maxItems, items[.bag] == nil, coin(bagP),
-           let bag = try? await pickItem(kind: .bag, preferBoots: false) {
+           let bag = try? await pickItem(kind: .bag, lockingDressCode: &targetDressCode, preferBoots: false) {
             items[.bag] = bag
         }
 
         // Accessory
         if items.count < maxItems, items[.accessory] == nil, coin(accP),
-           let acc = try? await pickItem(kind: .accessory, preferBoots: false) {
+           let acc = try? await pickItem(kind: .accessory, lockingDressCode: &targetDressCode, preferBoots: false) {
             items[.accessory] = acc
         }
 
         // Ensure we never drop below min items (shouldn’t happen, but just in case)
         if items.count < minItems {
-            if items[.bag] == nil, let bag = try? await pickItem(kind: .bag, preferBoots: false) {
+            if items[.bag] == nil, let bag = try? await pickItem(kind: .bag, lockingDressCode: &targetDressCode, preferBoots: false) {
                 items[.bag] = bag
             }
         }
@@ -335,19 +354,57 @@ final class WeatherSuggestionViewModel: ObservableObject {
         return Int(String(String.UnicodeScalarView(filtered)))
     }
 
-    private func pickItem(kind: LayerKind, preferBoots: Bool) async throws -> WardrobeItem? {
-        let items = try await store.fetchItems(userId: userId, for: kind, limit: 300)
-        guard !items.isEmpty else { return nil }
+    // MARK: Dress-code-aware picker
+    /// Pulls items for a layer kind and filters them to the locked dress code (if any).
+    /// If dress code is not yet locked, it will **lock** to the first picked non-empty one.
+    private func pickItem(kind: LayerKind,
+                          lockingDressCode targetDressCode: inout String?,
+                          preferBoots: Bool) async throws -> WardrobeItem? {
+        let all = (try? await store.fetchItems(userId: userId, for: kind, limit: 300)) ?? []
+        guard !all.isEmpty else { return nil }
 
-        if kind == .shoes {
-            let boots = items.filter {
-                let c = ($0.category + " " + $0.subcategory).lowercased()
+        let trimmedDC = targetDressCode?.ci
+
+        // 1) If we already locked a dress code, filter to it
+        var candidates: [WardrobeItem]
+        if let dc = trimmedDC, !dc.isEmpty {
+            candidates = all.filter { !$0.dressCode.ci.isEmpty && $0.dressCode.ci == dc }
+            // If we have zero candidates, relax to items with empty dress code (neutral)
+            if candidates.isEmpty {
+                candidates = all.filter { $0.dressCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            }
+            // Still none? As a last resort, allow any (to avoid no-suggestion dead ends)
+            if candidates.isEmpty {
+                candidates = all
+            }
+        } else {
+            // No lock yet: prefer items that actually specify a dress code, else any
+            let withDC = all.filter { !$0.dressCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            candidates = withDC.isEmpty ? all : withDC
+        }
+
+        // Shoes: if rain preference is on, bias toward boots (still respecting dress code filter above)
+        if kind == .shoes, preferBoots {
+            let boots = candidates.filter {
+                let c = ($0.category + " " + $0.subcategory).ci
                 return c.contains("boot")
             }
-            if preferBoots, let b = boots.randomElement() {
+            if let b = boots.randomElement() {
+                // Lock dress code if needed
+                if targetDressCode?.isEmpty ?? true, !b.dressCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    targetDressCode = b.dressCode
+                }
                 return b
             }
         }
-        return items.randomElement()
+
+        guard let pick = candidates.randomElement() else { return nil }
+
+        // Lock dress code if we haven't yet and this item has one
+        if targetDressCode?.isEmpty ?? true {
+            let dc = pick.dressCode.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !dc.isEmpty { targetDressCode = dc }
+        }
+        return pick
     }
 }

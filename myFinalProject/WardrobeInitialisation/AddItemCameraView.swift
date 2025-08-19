@@ -75,7 +75,7 @@ struct AddItemCameraView: View {
         // 3) Overlay tagging progress/errors
         .overlay(
             VStack {
-                if taggingVM.isLoading { ProgressView("Tagging…") }
+                if taggingVM.isLoading { ProgressView("Saving…") }
                 if let err = taggingVM.errorMessage {
                     Text(err).foregroundColor(.red)
                 }

@@ -8,10 +8,18 @@
 import Foundation
 import UIKit
 
+// Defines response models for two Lykdat Cloud API endpoints:
+// Item Detection → returns detected fashion items and their normalized bounding boxes.
+// Deep Tagging → returns colors, items, and descriptive labels with confidences.
+// (All structs are Codable so JSON can be decoded directly.)
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK: — Response Models
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Response model for the item-detection endpoint
+/// (returns a list of detected fashion items + bounding boxes).
+///
 struct ItemDetectionResponse: Codable {
   struct DetectedItem: Codable {
     let name: String
@@ -35,6 +43,10 @@ struct ItemDetectionResponse: Codable {
   let data: DataWrapper
 }
 
+
+/// Response model for the deep-tagging endpoint
+/// (dominant colors, item classifications, and descriptive labels).
+///
 struct DeepTaggingResponse: Codable {
   struct Color: Codable {
     let name: String
@@ -64,6 +76,12 @@ struct DeepTaggingResponse: Codable {
 // MARK: — LykdatClient
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Minimal client for Lykdat Cloud API:
+/// - builds a multipart/form-data request with a JPEG image
+/// - calls item detection and deep tagging endpoints
+/// - decodes JSON into typed models
+///
+/// API key loaded from Info.plist (crashes loudly if missing to surface misconfiguration early).
 class LykdatClient {
   private let apiKey: String = {
     guard let key = Bundle.main.infoDictionary?["LykdatAPIKey"] as? String,
@@ -102,7 +120,10 @@ class LykdatClient {
     return req
   }
 
-  /// Calls the item-detection endpoint and returns an array of DetectedItem.
+    // MARK: - Public API
+
+    /// Calls the item-detection endpoint and returns an array of DetectedItem.
+
   func detectItems(
     imageData: Data,
     completion: @escaping (Result<[ItemDetectionResponse.DetectedItem], Error>) -> Void
@@ -135,7 +156,8 @@ class LykdatClient {
     }
   }
 
-  /// Calls the deep-tagging endpoint and returns colors, items & labels.
+
+    /// Calls the deep-tagging endpoint and returns colors, items & labels.
   func deepTags(
     imageData: Data,
     completion: @escaping (Result<DeepTaggingResponse.DataWrapper, Error>) -> Void

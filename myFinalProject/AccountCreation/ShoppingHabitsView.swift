@@ -6,6 +6,12 @@
 //
 import SwiftUI
 
+/// Collects basic shopping-habit info from the user:
+/// - frequency of buying clothes
+/// - number of items purchased in the last 3 months
+/// Saves via the ViewModel and navigates to onboarding on success.
+///
+
 struct ShoppingHabitsView: View {
     @StateObject private var vm = ShoppingHabitsViewModel()
 
