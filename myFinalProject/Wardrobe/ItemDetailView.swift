@@ -1,3 +1,4 @@
+//
 //  ItemDetailView.swift
 //  myFinalProject
 //
@@ -215,13 +216,13 @@ struct ItemDetailView: View {
         Group {
             switch selectedTab {
             case .about:   aboutView
-            case .outfits: outfitsView   // 👈 collage grid here
+            case .outfits: outfitsView   // collage grid here
             case .stats:   statsView
             }
         }
     }
 
-    // MARK: — About Tab
+    // MARK: — About Tab (shows colour chips using stored hex codes)
     private var aboutView: some View {
         VStack(spacing: 16) {
             if !item.colours.isEmpty {
@@ -232,6 +233,7 @@ struct ItemDetailView: View {
                         HStack(spacing: 6) {
                             ForEach(item.colours, id: \.self) { name in
                                 let key = name.colorKey
+                                // Prefer stored hex; if the colour string *is* a hex, that also works.
                                 let resolvedHex = item.colorHexByName[key] ?? name
                                 let bg = Color(hex: resolvedHex) ?? .gray
 
@@ -271,7 +273,7 @@ struct ItemDetailView: View {
         .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 2)
     }
 
-    // MARK: — Outfits Tab (collage grid with stable IDs)
+    // MARK: — Outfits Tab (collage grid with stable IDs; up to 6 tiles)
     private struct OutfitRow: Identifiable {
         let id: String
         let outfit: Outfit
@@ -306,7 +308,7 @@ struct ItemDetailView: View {
                     ForEach(outfitsForItemRows) { row in
                         NavigationLink {
                             OutfitDetailView(outfit: row.outfit)
-                                .environmentObject(wardrobeVM)   // ✅ needed by detail
+                                .environmentObject(wardrobeVM)
                         } label: {
                             OutfitCollageCard(outfit: row.outfit)
                         }

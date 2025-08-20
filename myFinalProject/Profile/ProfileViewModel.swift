@@ -5,7 +5,6 @@
 //  Created by Derya Baglan on 30/07/2025.
 //
 
-
 import Foundation
 import FirebaseAuth
 import FirebaseFirestore
@@ -50,27 +49,33 @@ final class ProfileViewModel: ObservableObject {
         }
         self.email = user.email ?? ""
 
+        // ✅ Join date = Auth account creation time
+        if let created = user.metadata.creationDate {
+            let fmt = DateFormatter()
+            fmt.dateStyle = .medium
+            self.joinDate = fmt.string(from: created)
+        }
+
+        // Listen to Firestore user doc for username + image URL updates
         let db = Firestore.firestore()
         let ref = db.collection("users").document(user.uid)
 
         listener = ref.addSnapshotListener { [weak self] snapshot, error in
             guard let self = self else { return }
-            // Hop back to the main actor for all @Published mutations
             Task { @MainActor in
                 self.isLoading = false
                 guard error == nil, let data = snapshot?.data() else { return }
 
-                self.username = (data["userName"] as? String) ?? self.username
-
-                if let ts = data["createdAt"] as? Timestamp {
-                    let date = ts.dateValue()
-                    let fmt = DateFormatter()
-                    fmt.dateStyle = .medium
-                    self.joinDate = fmt.string(from: date)
+                // Prefer modern "username", but fall back to legacy "userName"
+                if let u = (data["username"] as? String) ?? (data["userName"] as? String) {
+                    self.username = u
                 }
 
-                if let imageURL = data["profileImageURL"] as? String, !imageURL.isEmpty {
-                    await self.fetchProfileImage(from: imageURL)
+                // Accept both photoURL and profileImageURL for compatibility
+                if let urlString = (data["photoURL"] as? String)
+                    ?? (data["profileImageURL"] as? String),
+                   !urlString.isEmpty {
+                    await self.fetchProfileImage(from: urlString)
                 } else {
                     self.profileImage = nil
                 }
@@ -79,7 +84,6 @@ final class ProfileViewModel: ObservableObject {
     }
 
     private func fetchProfileImage(from urlString: String) async {
-        // Works with https download URLs; if it fails, fall back gracefully.
         guard let url = URL(string: urlString) else { return }
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
@@ -87,7 +91,7 @@ final class ProfileViewModel: ObservableObject {
                 self.profileImage = img
             }
         } catch {
-            // Optional: ignore or surface error
+            // ignore download errors silently
         }
     }
 
@@ -101,9 +105,7 @@ final class ProfileViewModel: ObservableObject {
     }
 
     // MARK: - Delete account
-    func requestDeleteAccount() {
-        showDeleteConfirm = true
-    }
+    func requestDeleteAccount() { showDeleteConfirm = true }
 
     func confirmDeleteAccount() {
         showDeleteConfirm = false
@@ -169,7 +171,7 @@ final class ProfileViewModel: ObservableObject {
             try await batch.commit()
         }
 
-        // 2) (Optional) Delete legacy top-level wardrobeItems owned by this uid
+        // 2) Optional legacy collection example
         let legacySnap = try await db.collection("wardrobeItems")
             .whereField("userId", isEqualTo: uid)
             .getDocuments()
@@ -179,7 +181,7 @@ final class ProfileViewModel: ObservableObject {
             try await batch.commit()
         }
 
-        // 3) Delete the user doc last (subcollections aren't auto-deleted)
+        // 3) Delete the user doc last
         try await userDoc.delete()
     }
 
@@ -187,6 +189,7 @@ final class ProfileViewModel: ObservableObject {
         let storage = StorageBucket.instance
         try await deleteAllFiles(in: storage.reference(withPath: "profile_images/\(uid)"))
         try await deleteAllFiles(in: storage.reference(withPath: "wardrobe_images/\(uid)"))
+        try await deleteAllFiles(in: storage.reference(withPath: "avatars")) // single file cleanup below handles misses
     }
 
     private func deleteAllFiles(in folder: StorageReference) async throws {

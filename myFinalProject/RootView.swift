@@ -20,6 +20,7 @@ struct RootView: View {
         } else if let user = auth.user {
             if user.isEmailVerified {
                 MainTabView()
+
                     .environmentObject(auth)
             } else {
                 EmailVerificationFlowView(email: user.email ?? "")

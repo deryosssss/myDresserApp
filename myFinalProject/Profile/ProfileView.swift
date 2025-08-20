@@ -8,13 +8,14 @@
 import SwiftUI
 
 struct ProfileView: View {
-    // Keep your default placeholders but show VM data if present
+    // Default placeholders (shown until VM loads)
     var username: String = "Username"
     var email: String = "Email"
     var joinDate: String = "Join Date"
     var profileImage: UIImage? = nil
 
     @StateObject private var vm = ProfileViewModel()
+    @State private var showHelpSheet = false
 
     var body: some View {
         NavigationStack {
@@ -24,14 +25,14 @@ struct ProfileView: View {
                 VStack(spacing: 0) {
                     // Header Card
                     ZStack(alignment: .topLeading) {
-                        RoundedRectangle(cornerRadius: 0, style: .continuous)
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .fill(Color(.white))
                             .frame(height: 130)
                             .padding(.top, 140)
                             .padding(.horizontal, 20)
                             .padding(.bottom, 60)
 
-                        // Profile image (use VM image if available, else the prop)
+                        // Profile image (prefer VM image; fallback to prop)
                         Circle()
                             .stroke(Color.white, lineWidth: 3)
                             .background(
@@ -54,17 +55,17 @@ struct ProfileView: View {
                             .offset(x: -18, y: -16)
                             .padding(.leading, 190)
                             .padding(.top, 120)
-                            .shadow(radius: 2)
+                            .shadow(radius: 10)
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text((vm.username.isEmpty ? username : vm.username))
+                            Text(vm.username.isEmpty ? username : vm.username)
                                 .font(AppFont.spicyRice(size: 28))
                                 .foregroundColor(.black)
-                            Text((vm.email.isEmpty ? email : vm.email))
-                                .font(AppFont.agdasima(size: 15))
+                            Text(vm.email.isEmpty ? email : vm.email)
+                                .font(AppFont.agdasima(size: 20))
                                 .foregroundColor(.black)
-                            Text((vm.joinDate.isEmpty ? joinDate : vm.joinDate))
-                                .font(AppFont.agdasima(size: 15))
+                            Text(vm.joinDate.isEmpty ? joinDate : vm.joinDate)
+                                .font(AppFont.agdasima(size: 20))
                                 .foregroundColor(.black)
                         }
                         .padding(.top, 170)
@@ -78,18 +79,27 @@ struct ProfileView: View {
                         NavigationLink(destination: AccountDetailsView()) {
                             ProfileListButton(icon: "person.fill", label: "My account details")
                         }
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+
                         NavigationLink(destination: StatsView()) {
                             ProfileListButton(icon: "chart.bar.fill", label: "My Stats")
                         }
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+
                         NavigationLink(destination: OutfitsView()) {
                             ProfileListButton(icon: "hanger", label: "My Outfits")
                         }
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+
                         NavigationLink(destination: FavouritesView()) {
                             ProfileListButton(icon: "heart.fill", label: "My Favourites")
                         }
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+
                         NavigationLink(destination: NotificationsView()) {
                             ProfileListButton(icon: "bell.fill", label: "My notifications", showDot: true)
                         }
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 10)
@@ -102,6 +112,7 @@ struct ProfileView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 13)
                             .background(Color(.systemGray6))
+                            .clipShape(RoundedRectangle(cornerRadius: 10))     // ⬅️ rounded
                     }
                     .disabled(vm.isWorking)
                     .padding(.top, 20)
@@ -111,7 +122,7 @@ struct ProfileView: View {
 
                     // Bottom row
                     HStack(spacing: 18) {
-                        Button(action: { /* Help */ }) {
+                        Button(action: { showHelpSheet = true }) {
                             HStack(spacing: 5) {
                                 Image(systemName: "questionmark.circle")
                                 Text("Help")
@@ -121,7 +132,9 @@ struct ProfileView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 13)
                             .background(Color(.systemGray6))
+                            .clipShape(RoundedRectangle(cornerRadius: 10)) // ⬅️ rounded
                         }
+
                         NavigationLink {
                             DeleteAccountView()
                                 .navigationBarBackButtonHidden(true)
@@ -132,6 +145,7 @@ struct ProfileView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 13)
                                 .background(Color.red.opacity(0.18))
+                                .clipShape(RoundedRectangle(cornerRadius: 10)) // ⬅️ rounded
                         }
                         .disabled(vm.isWorking)
                     }
@@ -145,9 +159,8 @@ struct ProfileView: View {
         // Error alert
         .alert("Error", isPresented: $vm.showError) {
             Button("OK", role: .cancel) {}
-        } message: {
-            Text(vm.errorMessage)
-        }
+        } message: { Text(vm.errorMessage) }
+
         // Confirm delete
         .alert("Delete Account?", isPresented: $vm.showDeleteConfirm) {
             Button("Cancel", role: .cancel) {}
@@ -155,6 +168,7 @@ struct ProfileView: View {
         } message: {
             Text("This will permanently remove your account, wardrobe items, and images.")
         }
+
         // Re-auth sheet
         .sheet(isPresented: $vm.showReauthSheet) {
             ReauthView(
@@ -166,9 +180,17 @@ struct ProfileView: View {
             )
             .presentationDetents([.height(260)])
         }
+
+        // Help sheet
+        .sheet(isPresented: $showHelpSheet) {
+            HelpSheetView(username: vm.username.isEmpty ? username : vm.username)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
     }
 }
 
+// MARK: - Local ReauthView so it's always in scope
 private struct ReauthView: View {
     @Binding var email: String
     @Binding var password: String

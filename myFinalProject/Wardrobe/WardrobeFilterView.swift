@@ -1,9 +1,9 @@
+//
 //  WardrobeFilterView.swift
 //  myFinalProject
 //
 //  Created by Derya Baglan on 05/08/2025.
 //
-
 
 import SwiftUI
 
@@ -45,20 +45,35 @@ struct WardrobeFilterView: View {
     private let sizes       = ["Any", "XS", "S", "M", "L", "XL"]
     private let materials   = ["Any", "Cotton", "Silk", "Denim", "Leather", "Wool"]
 
-    // MARK: – Colour mapping for common names
-    private let colourMap: [String: Color] = [
-        "Black": .black,
-        "White": .white,
-        "Red": .red,
-        "Blue": .blue,
-        "Green": .green,
-        "Yellow": .yellow,
-        "Pink": .pink
+    // MARK: – Fallback colour names → SwiftUI Color
+    private let fallbackNameMap: [String: Color] = [
+        "Black": .black, "White": .white, "Red": .red, "Blue": .blue,
+        "Green": .green, "Yellow": .yellow, "Pink": .pink
     ]
 
-    // MARK: – Dynamic colours from user’s wardrobe items (names)
+    // MARK: – Aggregate colour names from wardrobe (display)
     private var dynamicColours: [String] {
         Array(Set(vm.items.flatMap { $0.colours })).sorted()
+    }
+
+    // MARK: – Aggregate name → hex map from all items (normalized keys)
+    private var aggregatedColorHexMap: [String: String] {
+        func norm(_ s: String) -> String {
+            s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        }
+        var out: [String: String] = [:]
+        for item in vm.items {
+            for (name, hexRaw) in item.colorHexByName {
+                let key = norm(name)
+                let hex = hexRaw.trimmingCharacters(in: .whitespacesAndNewlines)
+                                .replacingOccurrences(of: "#", with: "")
+                // store only valid 6-char hex
+                if hex.count == 6, Int(hex, radix: 16) != nil {
+                    out[key] = hex
+                }
+            }
+        }
+        return out
     }
 
     // MARK: — grid layout for non-colour chips
@@ -81,6 +96,7 @@ struct WardrobeFilterView: View {
                         dropdownSection(title: "Season",     selection: $selectedSeason,     options: seasons)
                         dropdownSection(title: "Size",       selection: $selectedSize,       options: sizes)
                         dropdownSection(title: "Material",   selection: $selectedMaterial,   options: materials)
+
                         colourPickerSection(
                             title:       "Colours",
                             options:     dynamicColours,
@@ -154,7 +170,7 @@ struct WardrobeFilterView: View {
         }
     }
 
-    // MARK: — Colour picker as circles (white gets thin gray border)
+    // MARK: — Colour picker as circles (now driven by stored hex codes)
     private func colourPickerSection(
         title:      String,
         options:    [String],
@@ -166,10 +182,15 @@ struct WardrobeFilterView: View {
                 .foregroundColor(.black)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 12)], spacing: 12) {
-                ForEach(options, id: \.self) { opt in
-                    // Use our simple name map; fall back to gray (or Color(hex:) if your names are hex)
-                    let clr = colourMap[opt] ?? Color(hex: opt) ?? .gray
-                    let isSelected = selection.wrappedValue.contains(opt)
+                ForEach(options, id: \.self) { displayName in
+                    // Use stored hex when available (lookup by normalized name), else fallback.
+                    let hex = aggregatedColorHexMap[displayName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()]
+                    let clr = (hex.flatMap { Color(hex: $0) })       // from your global Color(hex:) initializer
+                              ?? fallbackNameMap[displayName]
+                              ?? .gray
+
+                    let isSelected = selection.wrappedValue.contains(displayName)
+
                     Circle()
                         .fill(clr)
                         .frame(width: 36, height: 36)
@@ -185,11 +206,12 @@ struct WardrobeFilterView: View {
                         )
                         .onTapGesture {
                             if isSelected {
-                                selection.wrappedValue.remove(opt)
+                                selection.wrappedValue.remove(displayName)
                             } else {
-                                selection.wrappedValue.insert(opt)
+                                selection.wrappedValue.insert(displayName)
                             }
                         }
+                        .accessibilityLabel(Text(displayName))
                 }
             }
             .padding(.top, 4)
@@ -256,4 +278,3 @@ struct WardrobeFilterView: View {
         dismiss()
     }
 }
-

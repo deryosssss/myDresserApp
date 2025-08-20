@@ -8,10 +8,27 @@
 import SwiftUI
 
 struct NotificationsView: View {
+    @State private var showComingSoon = false
+
     var body: some View {
-        Text("My Notifications")
-            .font(.largeTitle)
-            .navigationTitle("My Notifications")
-            .navigationBarTitleDisplayMode(.inline)
+        VStack {
+            Text("My Notifications")
+                .font(AppFont.spicyRice(size: 22))
+                .foregroundColor(.black)
+                .padding(.vertical, 8)
+            
+        }
+        Spacer()
+        .onAppear {
+            // Small delay so it doesn't clash with navigation animations
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                showComingSoon = true
+            }
+        }
+        .alert("Coming soon", isPresented: $showComingSoon) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Notifications are coming soon.")
+        }
     }
 }

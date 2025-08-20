@@ -15,13 +15,14 @@ struct myFinalProjectApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     @StateObject private var authVM = AuthViewModel()
-    @StateObject private var taggingVM = ImageTaggingViewModel() // your existing VM
+    @StateObject private var taggingVM = ImageTaggingViewModel()
+    @StateObject private var wardrobeVM = WardrobeViewModel()
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(authVM)
-                // If any screens need taggingVM, add .environmentObject(taggingVM) too
+                .environmentObject(wardrobeVM)
         }
     }
 }

@@ -164,11 +164,11 @@ struct MagicView: View {
         .padding(20)
         .padding(.vertical, 20)
         .background(
-            RoundedRectangle(cornerRadius: 0, style: .continuous)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Color.brandDarkGrey)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 0, style: .continuous)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(.black.opacity(0.05), lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.06), radius: 6, y: 3)
@@ -199,13 +199,13 @@ private struct DayChip: View {
         .frame(width: 50, height: 60)
         .background(background)
         .overlay(
-            RoundedRectangle(cornerRadius: 0, style: .continuous)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(isSelected ? .white.opacity(0.95) : .black.opacity(0.08),
                               lineWidth: isSelected ? 2 : 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 0, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .shadow(color: .black.opacity(isSelected ? 0.12 : 0.06),
-                radius: 0,
+                radius: 10,
                 y: isSelected ? 3 : 1)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel({
@@ -237,9 +237,9 @@ private struct ActionCardView: View {
     
     var body: some View {
         ZStack(alignment: .top) {
-            RoundedRectangle(cornerRadius: 0, style: .continuous)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(LinearGradient(colors: gradient, startPoint: .topLeading, endPoint: .bottomTrailing))
-            RoundedRectangle(cornerRadius: 0, style: .continuous)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(.white.opacity(0.35), lineWidth: 1)
             
             VStack(alignment: .center, spacing: 10) {
@@ -249,7 +249,7 @@ private struct ActionCardView: View {
                     .foregroundStyle(.black)
                     .padding(10)
                     .background(.ultraThinMaterial,
-                                in: RoundedRectangle(cornerRadius: 0, style: .continuous))
+                                in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 
                 Text(title)
                     .font(.system(size: 18, weight: .bold, design: .rounded))

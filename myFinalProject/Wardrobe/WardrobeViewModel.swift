@@ -5,7 +5,6 @@
 //  Created by Derya Baglan on 05/08/2025.
 //
 
-
 import Foundation
 import Combine
 import FirebaseAuth
@@ -22,14 +21,14 @@ protocol WardrobeDataService {
 }
 
 final class WardrobeViewModel: ObservableObject {
-    // MARK: — Published state
+    // MARK: - Published state
     @Published var items: [WardrobeItem] = []
     @Published var favoriteIDs = Set<String>()
 
     // Per-item outfits (ItemDetailView)
     @Published var outfitsByItem: [String: [Outfit]] = [:]
 
-    // All outfits for Wardrobe → Outfits tab
+    // All outfits for Wardrobe → Outfits tab (drives usage/diversity)
     @Published var allOutfits: [Outfit] = []
 
     @Published var error: Error?
@@ -71,7 +70,7 @@ final class WardrobeViewModel: ObservableObject {
         outfitListeners.values.forEach { $0.remove() }
     }
 
-    // MARK: — WardrobeItem APIs
+    // MARK: - WardrobeItem APIs
 
     func toggleFavorite(_ item: WardrobeItem) {
         guard let id = item.id, let idx = items.firstIndex(where: { $0.id == id }) else { return }
@@ -119,7 +118,7 @@ final class WardrobeViewModel: ObservableObject {
         service.updateItem(id, data: copy.dictionary)
     }
 
-    // MARK: — Media
+    // MARK: - Media
 
     func replacePhoto(_ item: WardrobeItem, with data: Data, contentType: String = "image/jpeg", fileExtension: String = "jpg") {
         guard let id = item.id else { return }
@@ -182,7 +181,7 @@ final class WardrobeViewModel: ObservableObject {
         self.service.updateItem(id, data: ["imageURL": url.absoluteString, "imagePath": path])
     }
 
-    // MARK: — Outfits (per-item for ItemDetailView)
+    // MARK: - Outfits (per-item for ItemDetailView)
 
     func setOutfits(_ outfits: [Outfit], for item: WardrobeItem) {
         guard let id = item.id else { return }
@@ -251,9 +250,9 @@ final class WardrobeViewModel: ObservableObject {
         // TODO: persist to Firestore
     }
 
-    // MARK: — Outfits Firestore listeners
+    // MARK: - Outfits Firestore listeners (hydrated for itemIDs/createdAt)
 
-    /// Live listener for all outfits of current user (drives Wardrobe → Outfits)
+    /// Live listener for all outfits of current user (drives Home/Stats usage & diversity)
     func startAllOutfitsListener() {
         guard let uid = Auth.auth().currentUser?.uid else {
             allOutfits = []
@@ -274,11 +273,7 @@ final class WardrobeViewModel: ObservableObject {
                 return
             }
             let arr: [Outfit] = snapshot?.documents.compactMap { doc in
-                if var o = try? doc.data(as: Outfit.self) {
-                    if o.id == nil { o.id = doc.documentID }   // ✅ ensure non-nil id
-                    return o
-                }
-                return Self.fallbackMapOutfit(doc)
+                Self.decodeOutfit(from: doc)
             } ?? []
             DispatchQueue.main.async { self.allOutfits = arr }
         }
@@ -302,11 +297,7 @@ final class WardrobeViewModel: ObservableObject {
                 return
             }
             let outfits: [Outfit] = snapshot?.documents.compactMap { doc in
-                if var o = try? doc.data(as: Outfit.self) {
-                    if o.id == nil { o.id = doc.documentID }   // ✅ ensure non-nil id
-                    return o
-                }
-                return Self.fallbackMapOutfit(doc)
+                Self.decodeOutfit(from: doc)
             } ?? []
 
             DispatchQueue.main.async {
@@ -321,11 +312,43 @@ final class WardrobeViewModel: ObservableObject {
         outfitListeners[itemId]?.remove()
         outfitListeners[itemId] = nil
     }
+}
 
-    /// Fallback mapping if Codable decoding isn’t perfect for Outfit.
-    private static func fallbackMapOutfit(_ doc: DocumentSnapshot) -> Outfit? {
-        let d = doc.data() ?? [:]
+// MARK: - Outfit decoding & fallback mapping
+
+private extension WardrobeViewModel {
+    /// Try Codable first, then hydrate from raw fields. Falls back to manual mapping.
+    static func decodeOutfit(from doc: QueryDocumentSnapshot) -> Outfit? {
+        // 1) Try Codable decode
+        if var o = try? doc.data(as: Outfit.self) {
+            hydrate(&o, from: doc.data(), id: doc.documentID)
+            // If the essential fields are present, return
+            if !o.imageURL.isEmpty { return o }
+            // otherwise fallthrough to fallback
+        }
+        // 2) Fallback mapping
+        return fallbackMapOutfit(doc)
+    }
+
+    /// Fill missing properties (id, itemIds, createdAt, etc.) from the raw dictionary.
+    static func hydrate(_ o: inout Outfit, from d: [String: Any], id: String) {
+        if o.id == nil { o.id = id }
+        if o.itemIds.isEmpty {
+            o.itemIds = (d["itemIDs"] as? [String]) ?? (d["itemIds"] as? [String]) ?? []
+        }
+        if o.itemImageURLs.isEmpty { o.itemImageURLs = d["itemImageURLs"] as? [String] ?? [] }
+        if o.tags.isEmpty { o.tags = d["tags"] as? [String] ?? [] }
+        if o.source.isEmpty { o.source = d["source"] as? String ?? "manual" }
+        if o.createdAt == nil, let ts = d["createdAt"] as? Timestamp { o.createdAt = ts.dateValue() }
+        if o.imageURL.isEmpty, let url = d["imageURL"] as? String { o.imageURL = url }
+    }
+
+    /// Manual decode used when Codable fails or fields differ.
+    static func fallbackMapOutfit(_ doc: QueryDocumentSnapshot) -> Outfit? {
+        let d = doc.data()
+
         guard let imageURL = d["imageURL"] as? String else { return nil }
+
         let name          = d["name"] as? String ?? ""
         let description   = d["description"] as? String
         let tags          = d["tags"] as? [String] ?? []
@@ -334,15 +357,17 @@ final class WardrobeViewModel: ObservableObject {
         let isFavorite    = d["isFavorite"] as? Bool ?? false
         let wearCount     = d["wearCount"] as? Int ?? 0
         let source        = d["source"] as? String ?? "manual"
+        let createdAt     = (d["createdAt"] as? Timestamp)?.dateValue()
 
         return Outfit(
-            id: doc.documentID,              // ✅ always set id
+            id: doc.documentID,
             name: name,
             description: description,
             imageURL: imageURL,
             itemImageURLs: itemImageURLs,
             itemIds: itemIDs,
             tags: tags,
+            createdAt: createdAt,
             wearCount: wearCount,
             isFavorite: isFavorite,
             source: source
@@ -350,7 +375,7 @@ final class WardrobeViewModel: ObservableObject {
     }
 }
 
-// MARK: — Filters & Sorting (Items)
+// MARK: - Filters & Sorting (Items)
 
 extension WardrobeViewModel {
     func matchesFilters(_ item: WardrobeItem) -> Bool {
@@ -392,6 +417,7 @@ extension WardrobeViewModel {
 }
 
 // MARK: - Firebase Storage async helpers
+
 private extension StorageReference {
     func putDataAsync(_ uploadData: Data, metadata: StorageMetadata?) async throws -> StorageMetadata {
         try await withCheckedThrowingContinuation { cont in
@@ -410,4 +436,3 @@ private extension StorageReference {
         }
     }
 }
-

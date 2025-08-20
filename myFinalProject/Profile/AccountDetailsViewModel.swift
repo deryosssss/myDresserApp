@@ -4,6 +4,7 @@
 //
 //  Created by Derya Baglan on 30/07/2025.
 //
+
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
@@ -18,11 +19,14 @@ final class AccountDetailsViewModel: ObservableObject {
   @Published var genderPresentation = ""
 
   // avatar
-  @Published var profileImage: UIImage?
+  @Published var profileImage: UIImage?    // current (downloaded) avatar for display
+  @Published var newAvatar: UIImage?       // newly picked avatar to upload
 
   // state
   @Published var isSaving = false
   @Published var alertMessage: String?
+  @Published var showSavedAlert: Bool = false
+
   var hasError: Bool { alertMessage != nil }
   var hasErrorBinding: Binding<Bool> {
     Binding<Bool>(
@@ -37,13 +41,13 @@ final class AccountDetailsViewModel: ObservableObject {
   private var listener: ListenerRegistration?
 
   var hasChanges: Bool {
-    guard let o = original else { return false }
+    guard let o = original else { return true } // allow initial save
     return firstName != o.firstName ||
            lastName  != o.lastName  ||
            username  != o.username  ||
            location  != o.location  ||
            genderPresentation != o.genderPresentation ||
-           profileImage != nil // new image selected
+           newAvatar != nil // only newly picked image counts as a change
   }
 
   var initials: String {
@@ -78,10 +82,11 @@ final class AccountDetailsViewModel: ObservableObject {
           self.genderPresentation = profile.genderPresentation
         }
 
-        // if there's a photoURL, fetch it once
-        if let urlString = profile.photoURL,
-           let url = URL(string: urlString)
-        {
+        // if there's a photoURL (either key), fetch it once for display
+        let urlString = profile.photoURL
+            ?? data["profileImageURL"] as? String
+            ?? data["photoURL"] as? String
+        if let urlString, let url = URL(string: urlString) {
           URLSession.shared.dataTask(with: url) { data,_,_ in
             guard let d = data, let img = UIImage(data: d) else { return }
             DispatchQueue.main.async { self.profileImage = img }
@@ -95,7 +100,7 @@ final class AccountDetailsViewModel: ObservableObject {
     isSaving = true
 
     // 1) if new image selected: upload it first
-    if let img = profileImage,
+    if let img = newAvatar,
        let jpeg = img.jpegData(compressionQuality: 0.8)
     {
       let avatarRef = storage.child("avatars/\(uid).jpg")
@@ -119,7 +124,7 @@ final class AccountDetailsViewModel: ObservableObject {
         }
       }
     } else {
-      // no new image, just update fields
+      // no new image, just update fields (keep existing URL from original)
       writeProfile(uid: uid, photoURL: original?.photoURL)
     }
   }
@@ -134,16 +139,27 @@ final class AccountDetailsViewModel: ObservableObject {
       photoURL: photoURL
     ).toDict()
 
+    // ✅ keep both username keys in sync so old/new readers see the same value
+    dict["username"] = username
+    dict["userName"] = username
+
+    // ✅ keep both photo keys too
+    dict["photoURL"] = photoURL ?? ""
+    dict["profileImageURL"] = photoURL ?? ""
+
     db.collection("users").document(uid).setData(dict, merge: true) { [weak self] e in
       DispatchQueue.main.async {
         self?.isSaving = false
         if let e = e {
           self?.alertMessage = e.localizedDescription
         } else {
-          // reset original
+          // reset original snapshot and clear the "new" avatar
           self?.original = UserProfile(dict: dict)
-          // clear selection so hasChanges falls back
-          self?.profileImage = nil
+          if let new = self?.newAvatar {
+            self?.profileImage = new // show what we just uploaded
+          }
+          self?.newAvatar = nil
+          self?.showSavedAlert = true
         }
       }
     }

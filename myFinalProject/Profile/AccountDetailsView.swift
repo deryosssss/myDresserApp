@@ -5,7 +5,6 @@
 //  Created by Derya Baglan on 30/07/2025.
 //
 
-// AccountDetailsView.swift
 import SwiftUI
 
 struct AccountDetailsView: View {
@@ -15,6 +14,7 @@ struct AccountDetailsView: View {
 
   var body: some View {
     VStack(spacing: 32) {
+      // Avatar (tap to pick)
       avatarSection
         .onTapGesture { showingImagePicker = true }
         .padding(.top, 20)
@@ -40,13 +40,24 @@ struct AccountDetailsView: View {
     .padding(.top, 16)
     .background(Color.white.ignoresSafeArea())
     .onAppear { vm.load() }
+
+    // Pick new avatar → bind to newAvatar (not profileImage) so hasChanges is correct
     .sheet(isPresented: $showingImagePicker) {
-      ImagePicker(image: $vm.profileImage)
+      ImagePicker(image: $vm.newAvatar)
     }
+
+    // Error alert
     .alert("Error",
            isPresented: vm.hasErrorBinding,
-           actions: { Button("OK", role: .cancel) { /* clearing happens automatically */ } },
+           actions: { Button("OK", role: .cancel) { } },
            message: { Text(vm.alertMessage ?? "") })
+
+    // Success popup
+    .alert("Saved", isPresented: $vm.showSavedAlert) {
+      Button("OK", role: .cancel) { }
+    } message: {
+      Text("Your information has been updated.")
+    }
     .navigationBarTitleDisplayMode(.inline)
   }
 
@@ -59,7 +70,8 @@ struct AccountDetailsView: View {
         .stroke(Color.white, lineWidth: 4)
         .frame(width: 110, height: 110)
 
-      if let img = vm.profileImage {
+      // Show newly picked avatar if present; else show current profile image; else initials
+      if let img = vm.newAvatar ?? vm.profileImage {
         Image(uiImage: img)
           .resizable()
           .scaledToFill()
@@ -83,8 +95,8 @@ struct AccountDetailsView: View {
     VStack(spacing: 16) {
       LabeledTextField(label: "First Name", text: $vm.firstName)
       LabeledTextField(label: "Last Name",  text: $vm.lastName)
-      LabeledTextField(label: "Username",  text: $vm.username)
-      LabeledTextField(label: "Location",  text: $vm.location)
+      LabeledTextField(label: "Username",   text: $vm.username)
+      LabeledTextField(label: "Location",   text: $vm.location)
       LabeledTextField(label: "Gender Presentation", text: $vm.genderPresentation)
     }
     .padding(.horizontal, 20)

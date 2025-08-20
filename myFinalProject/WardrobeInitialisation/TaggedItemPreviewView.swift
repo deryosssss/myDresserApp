@@ -4,11 +4,13 @@
 //  Created by Derya Baglan on 01/08/2025.
 //
 
+
 import SwiftUI
 import UIKit
 
 // MARK: - Color Helpers
-
+// NOTE: Make sure this init(hex:) exists only once in your project.
+// If you already defined it elsewhere, remove this duplicate.
 extension Color {
     init?(hex: String) {
         var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -43,6 +45,10 @@ struct TaggedItemPreviewView: View {
     // NEW — show a small info banner letting the user know we auto-categorised
     @State private var showAutoBanner: Bool = true
 
+    private func norm(_ s: String) -> String {
+        s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
@@ -53,13 +59,11 @@ struct TaggedItemPreviewView: View {
                 // Info banner (dismissible)
                 if showAutoBanner {
                     HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "info.circle.fill")
-                            .imageScale(.large)
+                        Image(systemName: "info.circle.fill").imageScale(.large)
 
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Auto-categorised")
-                                .font(.subheadline).bold()
-                            Text("We automatically categorised and tagged this item. Please review the details below and make any changes before saving.")
+                            Text("Auto-categorised").font(.subheadline).bold()
+                            Text("We automatically categorised and tagged this item. Please review the details below and make any changes before saving. Note - The more the tags the better our outfit recommendations will be!")
                                 .font(.footnote)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -95,19 +99,25 @@ struct TaggedItemPreviewView: View {
                     .cornerRadius(12)
                     .padding(.horizontal)
 
-                if let cols = taggingVM.deepTags?.colors, !cols.isEmpty {
+                // ===== Colours =====
+                if !taggingVM.colours.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Colours").bold().padding(.horizontal)
+
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 6) {
-                                ForEach(cols, id: \.hex_code) { c in
-                                    let bg = Color(hex: c.hex_code) ?? .gray
-                                    Text(c.name.capitalized)
+                                ForEach(taggingVM.colours, id: \.self) { name in
+                                    // background from the saved map (preferred), fallback to name if it is a hex
+                                    let key = norm(name)
+                                    let hex = taggingVM.colorHexByName[key] ?? name
+                                    let bg = Color(hex: hex) ?? .gray
+
+                                    Text(name.capitalized)
                                         .font(.caption)
                                         .padding(.vertical, 6)
                                         .padding(.horizontal, 12)
                                         .background(bg)
-                                        .foregroundColor(Color.isDark(hex: c.hex_code) ? .white : .black)
+                                        .foregroundColor(Color.isDark(hex: hex) ? .white : .black)
                                         .cornerRadius(12)
                                 }
                                 TinyEditButton { startEditing(.colours) }
@@ -117,6 +127,7 @@ struct TaggedItemPreviewView: View {
                     }
                 }
 
+                // ===== Chips =====
                 ChipRowView(title: "Category",         text: taggingVM.category)      { startEditing(.category) }
                 ChipRowView(title: "Sub Category",     text: taggingVM.subcategory)   { startEditing(.subcategory) }
                 ChipRowView(title: "Length",           text: taggingVM.length)        { startEditing(.length) }
@@ -213,7 +224,7 @@ struct TaggedItemPreviewView: View {
                 listAddBindings:    listAddBindings,
                 listRemoveBindings: listRemoveBindings,
                 listReadBindings:   listReadBindings,
-                currentCategory:    { taggingVM.category }  // helps show category-aware suggestions
+                currentCategory:    { taggingVM.category }
             )
         }
     }
@@ -258,7 +269,16 @@ struct TaggedItemPreviewView: View {
 
     private var listAddBindings: [EditableField: (String) -> Void] {
         [
-            .colours:    { taggingVM.colours.append($0) },
+            .colours:    {
+                // Add the colour name; if user typed a hex string, capture it.
+                taggingVM.colours.append($0)
+                let key = norm($0)
+                // If the string itself looks like hex, store it; otherwise leave as-is (no hex).
+                let cleaned = $0.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "#", with: "")
+                if cleaned.count == 6, Int(cleaned, radix: 16) != nil {
+                    taggingVM.colorHexByName[key] = cleaned
+                }
+            },
             .customTags: { taggingVM.tags.append($0) },
             .moodTags:   { taggingVM.moodTags.append($0) },
         ]
@@ -266,7 +286,10 @@ struct TaggedItemPreviewView: View {
 
     private var listRemoveBindings: [EditableField: (String) -> Void] {
         [
-            .colours:    { value in taggingVM.colours.removeAll(where: { $0 == value }) },
+            .colours:    { value in
+                taggingVM.colours.removeAll(where: { $0 == value })
+                taggingVM.colorHexByName.removeValue(forKey: norm(value))
+            },
             .customTags: { tag   in taggingVM.tags.removeAll(where: { $0 == tag }) },
             .moodTags:   { mood  in taggingVM.moodTags.removeAll(where: { $0 == mood }) },
         ]

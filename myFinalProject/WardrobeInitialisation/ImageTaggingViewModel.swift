@@ -24,7 +24,7 @@ final class ImageTaggingViewModel: ObservableObject {
     // MARK: - Editable metadata fields
     @Published var category = ""
     @Published var subcategory = ""
-    @Published var colours: [String] = []
+    @Published var colours: [String] = []                 // user-facing names
     @Published var tags: [String] = []
     @Published var length = ""
     @Published var style = ""
@@ -37,6 +37,9 @@ final class ImageTaggingViewModel: ObservableObject {
     @Published var season = ""
     @Published var size = ""
     @Published var moodTags: [String] = []
+
+    // NEW: color name → hex map (keys normalized for stable lookup)
+    @Published var colorHexByName: [String: String] = [:]
 
     // NEW fields to persist
     @Published var isFavorite: Bool = false
@@ -71,9 +74,29 @@ final class ImageTaggingViewModel: ObservableObject {
         isFavorite = false
         sourceType = .gallery
         gender = ""
+        colorHexByName.removeAll()
     }
 
-    // MARK: - Auto-tagging (unchanged logic)
+    /// Normalizes a color name to match how you look it up elsewhere.
+    private func norm(_ s: String) -> String {
+        s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    /// Build a stable name→hex map from `deepTags.colors`; keeps existing overrides on re-tagging.
+    private func buildColorMap(from colors: [DeepTaggingResponse.Color]) -> [String: String] {
+        var out = colorHexByName
+        for c in colors {
+            let key = norm(c.name)
+            let hex = c.hex_code.trimmingCharacters(in: .whitespacesAndNewlines)
+                                  .replacingOccurrences(of: "#", with: "")
+            if !key.isEmpty, hex.count == 6, Int(hex, radix: 16) != nil {
+                out[key] = hex
+            }
+        }
+        return out
+    }
+
+    // MARK: - Auto-tagging
 
     func autoTag(image: UIImage) {
         guard let data = image.jpegData(compressionQuality: 0.8) else { return }
@@ -100,9 +123,15 @@ final class ImageTaggingViewModel: ObservableObject {
                         switch deepResult {
                         case .success(let tagData):
                             self.deepTags = tagData
+
+                            // Names (chips)
                             self.colours = tagData.colors.map { $0.name.capitalized }
                             self.tags    = tagData.labels.map { $0.name.capitalized }
 
+                            // Color hex map ✅
+                            self.colorHexByName = self.buildColorMap(from: tagData.colors)
+
+                            // Fill extra attributes when present
                             if let fashionItem = tagData.items.first {
                                 self.category    = fashionItem.name.capitalized
                                 self.subcategory = fashionItem.category.capitalized
@@ -235,6 +264,7 @@ final class ImageTaggingViewModel: ObservableObject {
     }
 
     private func saveToFirestore(imageURL: String, imagePath: String, userId: String) {
+        // ✅ Persist the colorHexByName map alongside the friendly colour names
         let item = WardrobeItem(
             id:            nil,
             userId:        userId,
@@ -253,11 +283,12 @@ final class ImageTaggingViewModel: ObservableObject {
             season:        season,
             size:          size,
             colours:       colours,
+            colorHexByName: colorHexByName,        // ✅ store map
             customTags:    tags,
             moodTags:      moodTags,
-            isFavorite:    isFavorite,                 // NEW
-            sourceType:    sourceType,                 // NEW
-            gender:        gender,                     // NEW
+            isFavorite:    isFavorite,
+            sourceType:    sourceType,
+            gender:        gender,
             addedAt:       nil,
             lastWorn:      nil
         )
