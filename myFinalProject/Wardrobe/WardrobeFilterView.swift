@@ -2,7 +2,11 @@
 //  WardrobeFilterView.swift
 //  myFinalProject
 //
-//  Created by Derya Baglan on 05/08/2025.
+//  Created by Derya Baglan on 05/08/2025
+//
+//  1) Shows filter controls (dropdowns + multi-select chips + colour picker) for the wardrobe list.
+//  2) On appear, pre-fills UI from WardrobeViewModel.filters; "Apply" writes back, "Reset" clears.
+//  3) Colour chips use per-item stored hex codes when available (fallback to basic names), with contrast tweaks.
 //
 
 import SwiftUI
@@ -14,21 +18,19 @@ extension Color {
         let ui = UIColor(self)
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         ui.getRed(&r, green: &g, blue: &b, alpha: &a)
-        return Double((r * 299 + g * 587 + b * 114) / 1000)
+        return Double((r * 299 + g * 587 + b * 114) / 1000) // perceived luminance
         #else
         return 1.0
         #endif
     }
-    var contrastingTextColor: Color {
-        brightness() > 0.5 ? .black : .white
-    }
+    var contrastingTextColor: Color { brightness() > 0.5 ? .black : .white } // readable text on chip bg
 }
 
 struct WardrobeFilterView: View {
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var vm: WardrobeViewModel
+    @Environment(\.dismiss) private var dismiss                  // close the sheet
+    @EnvironmentObject private var vm: WardrobeViewModel         // source of truth for filters/items
 
-    // MARK: – Local filter UI state
+    // MARK: – Local filter UI state (mirrors vm.filters while editing)
     @State private var selectedCategory: String = "All"
     @State private var selectedColours: Set<String> = []
     @State private var selectedTags: Set<String> = []
@@ -37,7 +39,7 @@ struct WardrobeFilterView: View {
     @State private var selectedSize: String = "Any"
     @State private var selectedMaterial: String = "Any"
 
-    // MARK: – Static options
+    // MARK: – Static options (display labels)
     private let categories  = ["All", "Top", "Outerwear", "Dress", "Bottoms", "Footwear"]
     private let tags        = ["Casual", "Formal", "Party", "Sport", "Travel", "Work"]
     private let dressCodes  = ["Any", "Casual", "Business", "Black Tie"]
@@ -45,13 +47,13 @@ struct WardrobeFilterView: View {
     private let sizes       = ["Any", "XS", "S", "M", "L", "XL"]
     private let materials   = ["Any", "Cotton", "Silk", "Denim", "Leather", "Wool"]
 
-    // MARK: – Fallback colour names → SwiftUI Color
+    // MARK: – Fallback colour names → SwiftUI Color (when no hex mapping exists)
     private let fallbackNameMap: [String: Color] = [
         "Black": .black, "White": .white, "Red": .red, "Blue": .blue,
         "Green": .green, "Yellow": .yellow, "Pink": .pink
     ]
 
-    // MARK: – Aggregate colour names from wardrobe (display)
+    // MARK: – Aggregate colour names from wardrobe (distinct, sorted)
     private var dynamicColours: [String] {
         Array(Set(vm.items.flatMap { $0.colours })).sorted()
     }
@@ -67,16 +69,13 @@ struct WardrobeFilterView: View {
                 let key = norm(name)
                 let hex = hexRaw.trimmingCharacters(in: .whitespacesAndNewlines)
                                 .replacingOccurrences(of: "#", with: "")
-                // store only valid 6-char hex
-                if hex.count == 6, Int(hex, radix: 16) != nil {
-                    out[key] = hex
-                }
+                if hex.count == 6, Int(hex, radix: 16) != nil { out[key] = hex } // only valid 6-char hex
             }
         }
         return out
     }
 
-    // MARK: — grid layout for non-colour chips
+    // MARK: — Grid layout for non-colour chips
     private let chipColumns = [ GridItem(.adaptive(minimum: 80), spacing: 8) ]
 
     var body: some View {
@@ -106,6 +105,7 @@ struct WardrobeFilterView: View {
                     .padding()
                 }
 
+                // Apply button writes to vm.filters and dismisses
                 Button(action: applyFilters) {
                     Text("Apply")
                         .bold()
@@ -121,14 +121,14 @@ struct WardrobeFilterView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button { dismiss() } label: { Image(systemName: "xmark") }
+                    Button { dismiss() } label: { Image(systemName: "xmark") } // close without applying
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Reset", action: resetFilters)
+                    Button("Reset", action: resetFilters) // restore defaults
                 }
             }
             .onAppear {
-                // Pre-fill the sheet from the current VM filters
+                // Pre-fill UI state from current filters in VM
                 let f = vm.filters
                 selectedCategory  = f.category
                 selectedColours   = f.colours
@@ -141,7 +141,7 @@ struct WardrobeFilterView: View {
         }
     }
 
-    // MARK: — Dropdown helper
+    // MARK: — Dropdown helper (label + Menu backed by Binding<String>)
     private func dropdownSection(
         title:     String,
         selection: Binding<String>,
@@ -170,7 +170,7 @@ struct WardrobeFilterView: View {
         }
     }
 
-    // MARK: — Colour picker as circles (now driven by stored hex codes)
+    // MARK: — Colour picker as circles (uses stored hex when available)
     private func colourPickerSection(
         title:      String,
         options:    [String],
@@ -183,12 +183,11 @@ struct WardrobeFilterView: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 12)], spacing: 12) {
                 ForEach(options, id: \.self) { displayName in
-                    // Use stored hex when available (lookup by normalized name), else fallback.
-                    let hex = aggregatedColorHexMap[displayName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()]
-                    let clr = (hex.flatMap { Color(hex: $0) })       // from your global Color(hex:) initializer
+                    let norm = displayName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                    let hex = aggregatedColorHexMap[norm]                                    // from items
+                    let clr = (hex.flatMap { Color(hex: $0) })                               // global Color(hex:)
                               ?? fallbackNameMap[displayName]
                               ?? .gray
-
                     let isSelected = selection.wrappedValue.contains(displayName)
 
                     Circle()
@@ -196,20 +195,13 @@ struct WardrobeFilterView: View {
                         .frame(width: 36, height: 36)
                         .overlay(
                             ZStack {
-                                if clr == .white {
-                                    Circle().stroke(Color.gray, lineWidth: 1)
-                                }
-                                if isSelected {
-                                    Circle().stroke(Color.blue, lineWidth: 3)
-                                }
+                                if clr == .white { Circle().stroke(Color.gray, lineWidth: 1) } // outline on white
+                                if isSelected { Circle().stroke(Color.blue, lineWidth: 3) }    // selection ring
                             }
                         )
                         .onTapGesture {
-                            if isSelected {
-                                selection.wrappedValue.remove(displayName)
-                            } else {
-                                selection.wrappedValue.insert(displayName)
-                            }
+                            if isSelected { selection.wrappedValue.remove(displayName) }
+                            else { selection.wrappedValue.insert(displayName) }
                         }
                         .accessibilityLabel(Text(displayName))
                 }
@@ -218,7 +210,7 @@ struct WardrobeFilterView: View {
         }
     }
 
-    // MARK: — Chips helper for tags, etc.
+    // MARK: — Chips helper for tags, etc. (multi-select)
     private func multiSelectChips(
         title:     String,
         options:   [String],
@@ -240,11 +232,8 @@ struct WardrobeFilterView: View {
                         .background(isSelected ? Color.blue.opacity(0.4) : Color(.systemGray5))
                         .cornerRadius(12)
                         .onTapGesture {
-                            if isSelected {
-                                selection.wrappedValue.remove(opt)
-                            } else {
-                                selection.wrappedValue.insert(opt)
-                            }
+                            if isSelected { selection.wrappedValue.remove(opt) }
+                            else { selection.wrappedValue.insert(opt) }
                         }
                 }
             }
@@ -252,7 +241,6 @@ struct WardrobeFilterView: View {
     }
 
     // MARK: — Reset & Apply
-
     private func resetFilters() {
         selectedCategory  = "All"
         selectedColours.removeAll()
@@ -261,12 +249,11 @@ struct WardrobeFilterView: View {
         selectedSeason    = "All"
         selectedSize      = "Any"
         selectedMaterial  = "Any"
-
-        vm.filters = .default
+        vm.filters = .default                                   // write defaults back to VM
     }
 
     private func applyFilters() {
-        vm.filters = WardrobeFilters(
+        vm.filters = WardrobeFilters(                            // persist to VM
             category:  selectedCategory,
             colours:   selectedColours,
             tags:      selectedTags,
@@ -275,6 +262,6 @@ struct WardrobeFilterView: View {
             size:      selectedSize,
             material:  selectedMaterial
         )
-        dismiss()
+        dismiss()                                                // close the sheet
     }
 }

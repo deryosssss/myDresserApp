@@ -10,17 +10,20 @@ import CoreLocation
 import UIKit
 import FirebaseAuth
 
+/// Landing screen for "magic" creation flows:
+/// - shows today's weather + quick week picker
+/// - offers 4 big entry points (manual, prompt, dress code, weather)
+/// - passes user/location/date context into each flow
 struct MagicView: View {
-    @StateObject private var vm = MagicViewModel()
-    @State private var selectedDate: Date? = nil
-    @State private var hasAutoScrolled = false
+    @StateObject private var vm = MagicViewModel()        // screen data (weather, week dates, etc.)
+    @State private var selectedDate: Date? = nil          // chip-selected day (nil → today)
+    @State private var hasAutoScrolled = false            // ensure we center "today" only once
     
     var body: some View {
         GeometryReader { geo in
-            // compute a responsive card height based on available height
-            // (works in preview and with a TabView in the simulator)
+            // Compute a responsive card height from the available viewport.
             let h = geo.size.height
-            let cardHeight = max(200, min(280, h * 0.27 )) // clamp to 180…280
+            let cardHeight = max(200, min(280, h * 0.27)) // clamp to 200…280
             
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 16) {
@@ -30,27 +33,29 @@ struct MagicView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
-                .padding(.bottom, 20) // breathing room above the tab bar
+                .padding(.bottom, 20)
             }
             .background(Color.white.ignoresSafeArea())
         }
     }
     
     // MARK: Header (weather + selected date)
+    /// Shows current weather icon/temperature and the selected (or current) date.
     private var header: some View {
         HStack(spacing: 12) {
             Group {
                 if let icon = vm.icon {
                     icon.resizable().frame(width: 50, height: 50)
                 } else {
+                    // Fallback SF Symbol in case we don't have an icon yet
                     Image(systemName: "cloud.sun")
                         .symbolRenderingMode(.multicolor)
-                    
                 }
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(vm.temperature)
                     .font(AppFont.spicyRice(size: 36))
+                // If user tapped a day chip, show that date; otherwise show "today"
                 Text((selectedDate ?? vm.currentDate), formatter: fullDateFormatter)
                     .font(AppFont.spicyRice(size: 20))
                     .foregroundStyle(.secondary)
@@ -61,6 +66,8 @@ struct MagicView: View {
     
     
     // MARK: Week scroller (Mon–Sun chips)
+    /// Horizontally scrollable week with a centered auto-scroll to today.
+    /// Uses ScrollViewReader so we can programmatically position the "today" chip.
     private var dayScroller: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
@@ -97,6 +104,8 @@ struct MagicView: View {
     }
     
     // MARK: Big grey panel with 4 colorful cards (as NavigationLinks)
+    /// The four entry points. Each card is a pure visual view so the NavigationLink is the tap target.
+    /// We pass in the current userID and relevant context (weather/location/date) where needed.
     private func actionBoard(cardHeight: CGFloat) -> some View {
         VStack(spacing: 12) {
             LazyVGrid(
@@ -104,6 +113,7 @@ struct MagicView: View {
                           GridItem(.flexible(), spacing: 0)],
                 spacing: 15
             ) {
+                // 1) Manual creation
                 NavigationLink {
                     ManualSuggestionView(userId: Auth.auth().currentUser?.uid ?? "")
                 } label: {
@@ -115,6 +125,8 @@ struct MagicView: View {
                         height: cardHeight
                     )
                 }
+                
+                // 2) Prompt-based suggestions (local parsing)
                 NavigationLink {
                     PromptSuggestionView(userId: Auth.auth().currentUser?.uid ?? "demo-user")
                 } label: {
@@ -126,9 +138,11 @@ struct MagicView: View {
                         height: cardHeight
                     )
                 }
+                
+                // 3) Dress code suggestions
                 NavigationLink {
                     let uid = Auth.auth().currentUser?.uid ?? "demo-user"
-                    DressCodeSuggestionView(userId: uid)   // <-- correct initializer
+                    DressCodeSuggestionView(userId: uid)   // keep initializer explicit for clarity
                 } label: {
                     ActionCardView(
                         title: "Outfit ideas\nfor the dress code",
@@ -139,6 +153,7 @@ struct MagicView: View {
                     )
                 }
                 
+                // 4) Weather-aware suggestions (inject weather + location + date)
                 NavigationLink {
                     WeatherSuggestionView(
                         userId: Auth.auth().currentUser?.uid ?? "preview-user",
@@ -158,16 +173,17 @@ struct MagicView: View {
                         height: cardHeight
                     )
                 }
-                
             }
         }
         .padding(20)
         .padding(.vertical, 20)
         .background(
+            // Large neutral container that makes the colored cards pop
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Color.brandDarkGrey)
         )
         .overlay(
+            // Subtle stroke for definition on light/dark backgrounds
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(.black.opacity(0.05), lineWidth: 1)
         )
@@ -175,6 +191,7 @@ struct MagicView: View {
     }
     
     // MARK: Haptic
+    /// Light feedback when selecting a date chip.
     private func haptic() {
 #if canImport(UIKit)
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
@@ -184,6 +201,7 @@ struct MagicView: View {
 
 // MARK: - Subviews
 
+/// A compact day chip: weekday + day number, with 3 background states:
 private struct DayChip: View {
     let date: Date
     let isSelected: Bool
@@ -199,6 +217,7 @@ private struct DayChip: View {
         .frame(width: 50, height: 60)
         .background(background)
         .overlay(
+            // White border when selected; faint border otherwise for shape definition
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(isSelected ? .white.opacity(0.95) : .black.opacity(0.08),
                               lineWidth: isSelected ? 2 : 1)
@@ -227,7 +246,6 @@ private struct DayChip: View {
     }
 }
 
-/// Pure visual card (no nested Button) so NavigationLink is the tap target.
 private struct ActionCardView: View {
     let title: String
     let symbol: String
@@ -261,7 +279,7 @@ private struct ActionCardView: View {
             .padding(14)
         }
         .frame(height: height)
-        .frame(maxWidth: 140)
+        .frame(maxWidth: 140) // keep a tidy two-up grid
         .shadow(color: .black.opacity(0.12), radius: 8, y: 6)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(title.replacingOccurrences(of: "\n", with: " "))
@@ -269,21 +287,25 @@ private struct ActionCardView: View {
 }
 
 // MARK: - Formatters
+/// Localized long date for header subtitle (e.g., "Wednesday, 20 August 2025").
 private let fullDateFormatter: DateFormatter = {
     let f = DateFormatter()
     f.setLocalizedDateFormatFromTemplate("EEEE, d MMMM yyyy")
     return f
 }()
+/// Day number (1–31) used inside chips.
 private let dayNumberFormatter: DateFormatter = {
     let f = DateFormatter()
     f.setLocalizedDateFormatFromTemplate("d")
     return f
 }()
+/// Short weekday ("Mon", "Tue", …) used on chips.
 private let weekdayShortFormatter: DateFormatter = {
     let f = DateFormatter()
     f.setLocalizedDateFormatFromTemplate("EEE")
     return f
 }()
+/// Not used here, but kept for consistency with other screens.
 private let monthShortFormatter: DateFormatter = {
     let f = DateFormatter()
     f.setLocalizedDateFormatFromTemplate("MMM")
@@ -297,3 +319,4 @@ struct MagicView_Previews: PreviewProvider {
             .previewDisplayName("MagicView — Light")
     }
 }
+

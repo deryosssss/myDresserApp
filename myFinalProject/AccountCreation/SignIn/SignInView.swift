@@ -4,37 +4,42 @@
 //
 //  Created by Derya Baglan on 28/07/2025.
 //
+
 import SwiftUI
 
-/// Sign-in screen for existing users:
-/// - collects email/password
-/// - offers social sign-in shortcuts
-/// - links to Forgot Password and Sign Up flows
-/// - on success navigates to Home
-
+/// Sign-in screen for existing users.
+/// UX goals:
+/// • Collect email + password with minimal friction.
+/// • Offer “Forgot password” and “Sign up” exits.
+/// • Optional social sign-in affordances (currently placeholders).
+///
+///
 struct SignInView: View {
+    /// Screen-scoped state holder. Owns inputs, validation, errors and navigation flags.
     @StateObject private var vm = SignInViewModel()
     
     var body: some View {
         NavigationStack {
             ZStack {
                 Color.brandYellow.ignoresSafeArea()
+
                 VStack(alignment: .leading, spacing: 0) {
-                    Spacer().frame(height: 150)
-                    
+                    Spacer().frame(height: 150) // Creates breathing room under the notch.
+
                     Text("Sign In")
                         .font(AppFont.spicyRice(size: 36))
                         .foregroundColor(.black)
                         .padding(.leading, 24)
-                    
+
                     Text("Sign in to your existing account")
                         .font(AppFont.spicyRice(size: 16))
                         .foregroundColor(.black.opacity(0.55))
                         .padding(.top, 2)
                         .padding(.leading, 24)
-                    
+
                     Spacer().frame(height: 24)
-                    
+
+                    // Form fields + social buttons live in a stack to share horizontal padding.
                     VStack(spacing: 16) {
                         TextField("Email *", text: $vm.email)
                             .font(AppFont.agdasima(size: 22))
@@ -44,15 +49,17 @@ struct SignInView: View {
                             .padding()
                             .background(Color.white)
                             .cornerRadius(4)
-                        
+
+                        // Password field: secured entry bound to VM.
                         SecureField("Password *", text: $vm.password)
                             .font(AppFont.agdasima(size: 22))
                             .padding()
                             .background(Color.white)
                             .cornerRadius(4)
-                        
+
+                        // Social shortcuts (currently placeholders). Kept side-by-side for balance.
                         HStack(spacing: 14) {
-                            Button(action: { /* Google sign in */ }) {
+                            Button(action: { /* TODO: Google sign in */ }) {
                                 Image("googleIcon")
                                     .resizable()
                                     .frame(width: 24, height: 24)
@@ -61,7 +68,7 @@ struct SignInView: View {
                                     .background(Color.white)
                                     .cornerRadius(4)
                             }
-                            Button(action: { /* Facebook sign in */ }) {
+                            Button(action: { /* TODO: Facebook sign in */ }) {
                                 Image("facebookIcon")
                                     .resizable()
                                     .frame(width: 24, height: 24)
@@ -73,22 +80,23 @@ struct SignInView: View {
                         }
                     }
                     .padding(.horizontal, 24)
-                    
+
+                    // Inline error from the VM (e.g., invalid creds / network).
                     if !vm.errorMessage.isEmpty {
                         Text(vm.errorMessage)
                             .foregroundColor(.red)
                             .font(.system(size: 15, weight: .semibold))
                             .padding([.horizontal, .top], 24)
                     }
-                    
+
+                    // Secondary actions: Forgot password and Sign up.
+                    // These call into the VM which flips boolean nav flags.
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Forgot password ?")
                                 .font(AppFont.agdasima(size: 22))
                                 .foregroundColor(.black.opacity(0.7))
-                            Button(action: {
-                                vm.goForgotPassword()
-                            }) {
+                            Button(action: { vm.goForgotPassword() }) {
                                 Text("Click here")
                                     .font(AppFont.spicyRice(size: 18))
                                     .foregroundColor(.black)
@@ -100,9 +108,7 @@ struct SignInView: View {
                             Text("Don't have an account?")
                                 .font(AppFont.agdasima(size: 22))
                                 .foregroundColor(.black.opacity(0.7))
-                            Button(action: {
-                                vm.goSignUp()
-                            }) {
+                            Button(action: { vm.goSignUp() }) {
                                 Text("Sign up")
                                     .font(AppFont.spicyRice(size: 18))
                                     .foregroundColor(.black)
@@ -112,17 +118,21 @@ struct SignInView: View {
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 10)
-                    
+
                     Spacer()
-                    
+
                     ContinueButton(
                         title: vm.isLoading ? "Logging in..." : "Continue",
-                        enabled: vm.canContinue && !vm.isLoading,
-                        action: { vm.signIn() }
+                        enabled: vm.canContinue && !vm.isLoading, // disables when inputs invalid or mid-request
+                        action: { vm.signIn() }                  // VM performs auth and flips `goToHome` on success
                     )
                     .padding(.bottom, 100)
+
                     Spacer().frame(height: 10)
                 }
+
+                // Navigation is fully driven by VM booleans.
+                // This keeps push logic out of the auth calls and makes flows testable.
                 .navigationDestination(isPresented: $vm.goToForgotPassword) {
                     ForgotPasswordView()
                         .navigationBarBackButtonHidden(true)
@@ -139,4 +149,3 @@ struct SignInView: View {
         }
     }
 }
-

@@ -22,12 +22,13 @@ import FirebaseFirestore
 
 /// One suggested outfit (one item per logical layer).
 struct DCOutfitCandidate: Identifiable, Equatable {
-    let id = UUID()
+    let id = UUID() // Stable unique ID so ForEach diffs correctly.
     /// Concrete picks by layer, e.g. [.top: tee, .bottom: jeans, .shoes: sneakers]
     var itemsByKind: [LayerKind : WardrobeItem]
 
     /// Stable display order for thumbnails in the UI:
     /// dress → top → bottom → outerwear → shoes → bag → accessory
+    /// (Gives a consistent visual rhythm regardless of which layers are present.)
     var orderedItems: [WardrobeItem] {
         var arr: [WardrobeItem] = []
         if let d = itemsByKind[.dress]     { arr.append(d) }
@@ -40,6 +41,7 @@ struct DCOutfitCandidate: Identifiable, Equatable {
         return arr
     }
 
+    // Equatable by identity → cards replace cleanly in arrays.
     static func == (lhs: DCOutfitCandidate, rhs: DCOutfitCandidate) -> Bool {
         lhs.id == rhs.id
     }
@@ -49,7 +51,7 @@ struct DCOutfitCandidate: Identifiable, Equatable {
 // MARK: - ViewModel
 
 /// Builds dress-code-constrained outfit cards from the user's wardrobe.
-@MainActor
+@MainActor // Ensure all @Published mutations happen on the main thread (UI safety).
 final class DressCodeOutfitsViewModel: ObservableObject {
     // UI state
     @Published var cards: [DCOutfitCandidate] = []  // current deck of suggestions
@@ -60,7 +62,8 @@ final class DressCodeOutfitsViewModel: ObservableObject {
     let userId: String
     let dressCode: DressCodeOption                 // selected dress code (e.g., .casual)
 
-    // Buckets (items classified by LayerKind after loading & filtering by dress code)
+    // Buckets (items classified by LayerKind after loading & filtering by dress code).
+    // Using a dictionary lets us sample quickly per layer.
     private var byKind: [LayerKind: [WardrobeItem]] = [:]
 
     init(userId: String, dressCode: DressCodeOption) {
@@ -71,16 +74,18 @@ final class DressCodeOutfitsViewModel: ObservableObject {
     // MARK: Load
 
     /// Loads wardrobe items filtered by dress code, then generates `count` random cards.
+    /// Uses async/await so callers can `Task { await ... }` without blocking the UI.
     func loadInitial(count: Int = 4) async {
-        guard !isLoading else { return }
+        guard !isLoading else { return } // Drop concurrent loads to avoid churn.
         isLoading = true
-        defer { isLoading = false }
+        defer { isLoading = false }      // Always stop spinner, success or failure.
 
         do {
             try await loadBuckets()     // fetch & classify
             cards.removeAll()
 
-            // Generate several different combos
+            // Generate several different combos. We try `count` times but only append
+            // when we can actually build a valid candidate (e.g., shoes available).
             for _ in 0..<count {
                 if let c = makeRandomCandidate() { cards.append(c) }
             }
@@ -90,6 +95,7 @@ final class DressCodeOutfitsViewModel: ObservableObject {
     }
 
     /// Removes the given card and appends one new random card (same dress-code context).
+    /// Keeps the deck size roughly stable and the UI feeling responsive.
     func skip(_ id: DCOutfitCandidate.ID) async {
         cards.removeAll { $0.id == id }
         if let new = makeRandomCandidate() {
@@ -100,22 +106,22 @@ final class DressCodeOutfitsViewModel: ObservableObject {
     // MARK: Save (after preview confirms)
 
     /// Persists a selected outfit under `/users/{uid}/outfits/{doc}` in Firestore.
+    /// Accepts the final list of items from the preview sheet to keep this VM decoupled from the view.
     func saveOutfit(name: String,
                     occasion: String?,
                     description: String?,
                     date: Date?,
                     isFavorite: Bool,
                     items: [WardrobeItem]) async {
-        // If Firebase user is not present, fall back to injected userId.
-        // NOTE: The nil-coalescing to Optional(userId) makes this guard always succeed
-        // when userId is a non-empty String. This mirrors original behavior.
+        // If Firebase user is present, prefer that UID; otherwise fall back to injected userId.
+        // (Using `Optional(userId)` keeps the type as `String?` for the guard unwrap.)
         guard let uid = Auth.auth().currentUser?.uid ?? Optional(userId) else {
             errorMessage = "Please sign in."
             return
         }
 
         do {
-            // Compose basic outfit document. Use first image as the hero image.
+            // Compose basic outfit document. Use the first image as the hero image.
             let itemIDs = items.compactMap { $0.id }
             let urls = items.map { $0.imageURL }
             let payload: [String: Any] = [
@@ -128,21 +134,22 @@ final class DressCodeOutfitsViewModel: ObservableObject {
                 "occasion": occasion ?? "",
                 "wearCount": 0,
                 "isFavorite": isFavorite,
-                "source": "dresscode",
+                "source": "dresscode",                 // provenance tag → useful for analytics/filters
                 "dressCode": dressCode.rawValue,
                 "createdAt": FieldValue.serverTimestamp(),
+                // If no explicit date, also set to server time for chronological sorting.
                 "date": date != nil ? Timestamp(date: date!) : FieldValue.serverTimestamp()
             ]
 
-            // Write to Firestore and haptic notify on success.
+            // Write to Firestore (one new doc). Await makes this cancelable if the view disappears.
             let ref = Firestore.firestore()
                 .collection("users").document(uid)
                 .collection("outfits").document()
 
             try await ref.setData(payload)
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            UINotificationFeedbackGenerator().notificationOccurred(.success) // small UX delight
         } catch {
-            // Surface failure and haptic notify.
+            // Surface failure and notify haptically.
             self.errorMessage = error.localizedDescription
             UINotificationFeedbackGenerator().notificationOccurred(.error)
         }
@@ -152,6 +159,7 @@ final class DressCodeOutfitsViewModel: ObservableObject {
 
     /// Fetches up to 1000 recent wardrobe items, filters by dress code,
     /// and strictly classifies them into LayerKind buckets.
+    /// Splitting "load -> filter -> classify" makes this easy to unit test.
     private func loadBuckets() async throws {
         // Pull recent items for the user
         let col = Firestore.firestore()
@@ -161,16 +169,17 @@ final class DressCodeOutfitsViewModel: ObservableObject {
                                 .limit(to: 1000)
                                 .getDocuments()
 
-        // Dress-code filter (case-insensitive "contains")
+        // Dress-code filter (case-insensitive "contains"). Token comes from enum helper.
         let token = dressCode.token
         let all: [WardrobeItem] = snap.documents
+            // Local mapper keeps this VM independent from other stores and simplifies tests.
             .map { doc in ManualSuggestionStoreMap.mapItem(doc.data(), id: doc.documentID) }
             .filter { item in
                 let dc = item.dressCode.lowercased()
                 return token.isEmpty || dc.contains(token)
             }
 
-        // Strictly classify into kinds using matcher
+        // Strictly classify into kinds using matcher (mutually exclusive families).
         var res: [LayerKind: [WardrobeItem]] = [:]
         for item in all {
             for k in LayerKind.allCases {
@@ -185,8 +194,9 @@ final class DressCodeOutfitsViewModel: ObservableObject {
     // MARK: - Build lots of variations
 
     /// Create a random outfit using available buckets; returns nil if not enough items.
+    /// Favors variety by randomly choosing between “dress family” and “top+bottom family”.
     private func makeRandomCandidate() -> DCOutfitCandidate? {
-        // Require at least one pair of shoes
+        // Require at least one pair of shoes (anchor item for completeness).
         guard !(byKind[.shoes]?.isEmpty ?? true) else { return nil }
 
         // Two families: dress-based vs top+bottom-based
@@ -198,7 +208,7 @@ final class DressCodeOutfitsViewModel: ObservableObject {
             // Dress-based: dress + shoes + optional layers
             picks[.dress] = d
             if let s = byKind[.shoes]?.randomElement() { picks[.shoes] = s }
-            // 0–3 optional extras
+            // 0–3 optional extras with tuned probabilities for natural-looking sets.
             maybePick(.outerwear, into: &picks, probability: 0.6)
             maybePick(.bag,       into: &picks, probability: 0.5)
             maybePick(.accessory, into: &picks, probability: 0.5)
@@ -215,13 +225,14 @@ final class DressCodeOutfitsViewModel: ObservableObject {
             maybePick(.accessory, into: &picks, probability: 0.5)
         }
 
-        // Must have shoes at minimum
+        // Final sanity: must have shoes at minimum.
         guard picks[.shoes] != nil else { return nil }
 
         return DCOutfitCandidate(itemsByKind: picks)
     }
 
     /// Randomly inserts a layer (if available) based on a probability threshold.
+    /// Separated for readability and easy probability tuning.
     private func maybePick(_ kind: LayerKind, into dict: inout [LayerKind: WardrobeItem], probability: Double) {
         guard Double.random(in: 0...1) < probability,
               let item = byKind[kind]?.randomElement() else { return }
@@ -233,14 +244,16 @@ final class DressCodeOutfitsViewModel: ObservableObject {
 
 /// Mirror of ManualSuggestionStore.mapItem so we don't import the whole type here.
 /// Translates Firestore document data into a WardrobeItem.
+/// Keeping this local avoids tight coupling and makes it trivial to test with fake data.
 enum ManualSuggestionStoreMap {
     static func mapItem(_ data: [String: Any], id: String) -> WardrobeItem {
-        // Resolve source type (default to gallery)
+        // Resolve source type (default to gallery).
         let sourceStr = (data["sourceType"] as? String)?.lowercased()
             ?? WardrobeItem.SourceType.gallery.rawValue
         let src = WardrobeItem.SourceType(rawValue: sourceStr) ?? .gallery
 
-        // Build the model, mapping Firestore fields and providing sane defaults
+        // Build the model, mapping Firestore fields and providing sane defaults.
+        // Using nil-coalescing keeps this resilient to older/partial documents.
         return WardrobeItem(
             id: data["id"] as? String ?? id,
             userId: data["userId"] as? String ?? "",
@@ -270,8 +283,9 @@ enum ManualSuggestionStoreMap {
     }
 }
 
-/// STRICT category/subcategory matching (same spirit as ManualSuggestionStore.matches)
+/// STRICT category/subcategory matching (same spirit as ManualSuggestionStore.matches).
 /// Looks at `category + subcategory` tokens to decide which LayerKind(s) the item belongs to.
+/// Using keyword buckets keeps this robust to small taxonomy variations and easy to extend.
 enum KindMatcher {
     static func matches(_ item: WardrobeItem, for kind: LayerKind) -> Bool {
         let cat = item.category.lowercased()
@@ -286,14 +300,14 @@ enum KindMatcher {
         // Buckets for token matching; tune as your taxonomy evolves.
         let isDressLike  = containsAny(["dress", "gown", "jumpsuit", "overall"])
         let isTopLike    = containsAny(["top", "shirt", "blouse", "t-shirt", "tee", "sweater", "hoodie", "cardigan", "tank"])
-        let isBottomLike = containsAny(["pants", "jeans", "skirt", "shorts", "trouser", "trousers", "leggings", "trackpants"])
+        let isBottomLike = containsAny(["bottom", "bottoms", "pants","pant", "jeans","jean", "skirt", "shorts", "trouser", "trousers", "leggings", "trackpants"])
         let isShoeLike   = containsAny(["shoe", "shoes", "sneaker", "trainer", "boot", "boots", "sandal", "sandals", "loafer", "loafers", "footwear"])
         let isOuterWear  = containsAny(["jacket", "coat", "blazer", "outerwear", "parka"])
         let isBagLike    = containsAny(["bag", "handbag", "backpack", "tote", "crossbody", "purse", "wallet"])
         let isAccessory  = containsAny(["accessory", "belt", "scarf", "hat", "cap", "jewellery", "jewelry", "glove"])
 
-        // Ensure the item strongly belongs to exactly these families
-        // (e.g., shoes should not also be classified as top/bottom/dress).
+        // Ensure the item strongly belongs to exactly these families.
+        // This prevents, e.g., a “boots” item also being tagged as a bottom because of the word “short”.
         switch kind {
         case .shoes:     return isShoeLike   && !(isDressLike || isTopLike || isBottomLike)
         case .dress:     return isDressLike  && !(isShoeLike || isTopLike || isBottomLike)

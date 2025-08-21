@@ -5,34 +5,40 @@
 //  Updated to match OutfitPreviewSheet UI + persist favorite & delete.
 //
 
-//
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
 
+/// Detail/editor for a saved Outfit:
+/// - mirrors the UI of `OutfitPreviewSheet` so the experience is consistent
+/// - allows editing meta (name/occasion/date/description/favorite)
+/// - supports deleting the outfit document
 struct OutfitDetailView: View {
+    // Upstream data/cache owner (used for optimistic updates after save/delete)
     @EnvironmentObject var vm: WardrobeViewModel
     @Environment(\.dismiss) private var dismiss
 
     let outfit: Outfit
 
-    // Form state (mirrors OutfitPreviewSheet)
+    // MARK: - Form state (binds to controls)
     @State private var name: String = ""
     @State private var occasion: String? = nil
     @State private var createdOn: Date = Date()
     @State private var descriptionText: String = ""
     @State private var isFavorite: Bool = false
 
-    // UI
+    // MARK: - UI state
     @State private var isSaving = false
     @State private var showDeleteAlert = false
     @State private var errorMessage: String?
 
+    /// Pills shown for the occasion selector (simple, local list)
     private let occasionOptions: [String] = [
         "Everyday", "Work", "Smart", "Smart casual", "Casual",
         "Party", "Date", "Wedding", "Travel", "Sport", "Gym", "School", "Holiday"
     ]
 
+    /// Two-column grid for the large preview images
     private let grid = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
     var body: some View {
@@ -45,7 +51,7 @@ struct OutfitDetailView: View {
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.top, 6)
 
-                        // Big preview (2-up grid)
+    
                         LazyVGrid(columns: grid, spacing: 12) {
                             ForEach(previewURLs, id: \.self) { url in
                                 RoundedRectangle(cornerRadius: 14)
@@ -65,7 +71,6 @@ struct OutfitDetailView: View {
                         }
                         .padding(.horizontal)
 
-                        // Items strip
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Items")
                                 .font(AppFont.spicyRice(size: 18))
@@ -88,12 +93,10 @@ struct OutfitDetailView: View {
                         }
                         .padding(.horizontal)
 
-                        // Meta form (same layout as preview sheet)
                         VStack(spacing: 12) {
                             TextField("Outfit name (optional)", text: $name)
                                 .textFieldStyle(.roundedBorder)
 
-                            // Occasion chips
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
                                     ForEach(occasionOptions, id: \.self) { opt in
@@ -113,12 +116,15 @@ struct OutfitDetailView: View {
                                 }
                             }
 
+                            // Date the outfit is associated with (stored as Timestamp)
                             DatePicker("Date", selection: $createdOn, displayedComponents: .date)
 
+                            // Favorite toggle (saves to `isFavorite`)
                             Toggle(isOn: $isFavorite) {
                                 Label("Add to favourites", systemImage: isFavorite ? "heart.fill" : "heart")
                             }
 
+                            // Free-text notes/description
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("Description").font(.subheadline)
                                 TextEditor(text: $descriptionText)
@@ -130,6 +136,7 @@ struct OutfitDetailView: View {
                         }
                         .padding(.horizontal)
 
+                        // Inline error feedback
                         if let errorMessage {
                             Text(errorMessage)
                                 .foregroundStyle(.red)
@@ -140,7 +147,8 @@ struct OutfitDetailView: View {
                     .padding(.bottom, 8)
                 }
 
-                // CTA Row — match preview sheet, but left button is a TRASH ICON (delete)
+                // --- CTA row
+                // Left: Delete (shows confirm alert). Right: Save changes.
                 HStack(spacing: 12) {
                     Button(role: .destructive) {
                         showDeleteAlert = true
@@ -171,10 +179,12 @@ struct OutfitDetailView: View {
                 .padding(.horizontal)
                 .padding(.vertical, 8)
             }
+            // Destructive confirmation for delete to avoid accidental loss
             .alert("Delete this outfit?", isPresented: $showDeleteAlert) {
                 Button("Delete", role: .destructive) { Task { await deleteOutfit() } }
                 Button("Cancel", role: .cancel) {}
             }
+            // Seed UI from the model and fetch any extra fields that aren’t in `Outfit`
             .onAppear { seedFromModel(); Task { await loadExtraFieldsIfAny() } }
             .navigationBarTitleDisplayMode(.inline)
         }
@@ -182,25 +192,26 @@ struct OutfitDetailView: View {
 
     // MARK: - Derived
 
+    /// Ensures a balanced 2-up grid by duplicating the last image when count is odd.
     private var previewURLs: [String] {
-        // If odd count, duplicate last to keep a balanced 2-up grid look
         let urls = outfit.itemImageURLs
         if urls.count % 2 == 0 { return urls }
         if let last = urls.last { return urls + [last] }
         return urls
-        }
+    }
 
     // MARK: - Seed & Load
 
+    /// Initialize form state from the passed `Outfit` model.
     private func seedFromModel() {
         name = outfit.name
         descriptionText = outfit.description ?? ""
         isFavorite = outfit.isFavorite
-        createdOn = outfit.createdAt ?? Date()
-        // occasion loaded from document (optional)
+        createdOn = outfit.createdAt ?? Date() // fallback if createdOn not present
+        // `occasion` is loaded lazily from Firestore below (if present)
     }
 
-    /// Read extra fields that aren’t in the `Outfit` struct (e.g., "occasion", "createdOn")
+    /// Reads extra fields that aren’t on `Outfit` (e.g. "occasion", "createdOn").
     private func loadExtraFieldsIfAny() async {
         guard let uid = Auth.auth().currentUser?.uid,
               let oid = outfit.id else { return }
@@ -217,12 +228,12 @@ struct OutfitDetailView: View {
                 createdOn = ts.dateValue()
             }
         } catch {
-            // Non-fatal
         }
     }
 
     // MARK: - Persistence
 
+    /// Writes edited fields back to Firestore and updates local caches optimistically.
     private func saveChanges() async {
         guard let uid = Auth.auth().currentUser?.uid,
               let oid = outfit.id else { return }
@@ -230,6 +241,7 @@ struct OutfitDetailView: View {
         errorMessage = nil
         defer { isSaving = false }
 
+        // Patch-style update: only send changed fields; delete `occasion` if user cleared it.
         var patch: [String: Any] = [
             "name": name,
             "description": descriptionText,
@@ -248,7 +260,6 @@ struct OutfitDetailView: View {
                 .collection("outfits").document(oid)
                 .updateData(patch)
 
-            // Optimistic local updates (update the arrays in vm.outfitsByItem)
             for (key, var arr) in vm.outfitsByItem {
                 if let idx = arr.firstIndex(where: { $0.id == oid }) {
                     arr[idx].name = name
@@ -264,6 +275,7 @@ struct OutfitDetailView: View {
         }
     }
 
+    /// Deletes the outfit document and removes it from local caches.
     private func deleteOutfit() async {
         guard let uid = Auth.auth().currentUser?.uid,
               let oid = outfit.id else { return }
@@ -273,7 +285,7 @@ struct OutfitDetailView: View {
                 .collection("outfits").document(oid)
                 .delete()
 
-            // Remove from in-memory caches and dismiss
+            // Clear from caches so lists update without a reload.
             for key in vm.outfitsByItem.keys {
                 vm.outfitsByItem[key]?.removeAll { $0.id == oid }
             }

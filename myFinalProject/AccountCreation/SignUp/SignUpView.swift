@@ -8,30 +8,34 @@
 import SwiftUI
 
 /// Email/password sign-up screen:
-/// - collects email + password + confirm
-/// - shows T&Cs consent
-/// - provides (placeholder) social sign-in buttons
-/// - navigates to Email Verification on success
+/// - Collects credentials and consent.
+/// - Delegates all business logic to `SignupFlowViewModel`.
+/// - Reacts to published state (errors/loading/navigation) to update the UI.
+/// Why MVVM: the View is purely declarative; it observes state and renders,
+/// while the ViewModel owns validation, Firebase calls, and navigation flags.
 
 struct SignUpView: View {
+    /// `@StateObject` because the View creates and owns the VM instance
+    /// (we want it to live for the lifetime of this screen and not be recreated
+    /// on every render like a plain `@State` would).
     @StateObject private var vm = SignupFlowViewModel()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack { // modern container that manages programmatic navigation destinations
             ZStack {
                 Color.brandYellow.ignoresSafeArea()
 
                 VStack(alignment: .leading, spacing: 0) {
                     Spacer().frame(height: 38)
 
-                    // Heading
+                    // MARK: - Heading
                     Text("Sign Up")
-                        .font(AppFont.spicyRice(size: 36))
+                        .font(AppFont.spicyRice(size: 36)) // primary display typeface
                         .foregroundColor(.black)
                         .padding(.leading, 32)
                         .padding(.top, 70)
 
-                    // Subheading
+                    // Secondary tagline under the main H1
                     Text("CREATE YOUR ACCOUNT")
                         .font(AppFont.spicyRice(size: 16))
                         .foregroundColor(.black.opacity(0.55))
@@ -40,10 +44,12 @@ struct SignUpView: View {
 
                     Spacer().frame(height: 24)
 
-                    // Input Fields
+                    // MARK: - Inputs
+                    // Two-way bindings connect fields to VM state.
+                    // Keeping validation in the VM keeps the View uncluttered.
                     VStack(spacing: 16) {
                         TextField("Email *", text: $vm.email)
-                            .textInputAutocapitalization(.never)
+                            .textInputAutocapitalization(.never) // typical for auth forms
                             .disableAutocorrection(true)
                             .keyboardType(.emailAddress)
                             .font(AppFont.agdasima(size: 22))
@@ -66,7 +72,7 @@ struct SignUpView: View {
                             .background(Color.white)
                             .cornerRadius(4)
 
-                        // Social login placeholders (centered)
+                        // MARK: - Social buttons (placeholders)
                         HStack(spacing: 14) {
                             Button {
                                 vm.alertMessage = "Google Sign-In coming soon!"
@@ -105,7 +111,8 @@ struct SignUpView: View {
                     }
                     .padding(.horizontal, 24)
 
-                    // Error message
+                    // MARK: - Error message
+                    // Single place to surface VM error text (validation or Firebase).
                     if !vm.errorMessage.isEmpty {
                         Text(vm.errorMessage)
                             .foregroundColor(.red)
@@ -114,7 +121,8 @@ struct SignUpView: View {
                             .transition(.opacity)
                     }
 
-                    // Sign In link
+                    // MARK: - Already have an account?
+                    // Navigates back to Sign In via a boolean navigation destination.
                     HStack(spacing: 3) {
                         Spacer()
                         Text("Have an account?  ")
@@ -134,7 +142,8 @@ struct SignUpView: View {
 
                     Spacer().frame(height: 16)
 
-                    // Terms and conditions checkbox
+                    // MARK: - Terms & Conditions
+                    // Keeping consent in the VM allows `canContinue` to gate the CTA.
                     HStack(alignment: .top, spacing: 8) {
                         Button { vm.agreedToTerms.toggle() } label: {
                             Image(systemName: vm.agreedToTerms ? "checkmark.square" : "square")
@@ -152,14 +161,15 @@ struct SignUpView: View {
                                     .foregroundColor(.blue)
                             }
                             .sheet(isPresented: $vm.showTAndCs) {
-                                TermsAndConditionsView()
+                                TermsAndConditionsView() // separate, reusable screen
                             }
                         }
                     }
                     .padding(.horizontal, 24)
                     .padding(.bottom, 30)
 
-                    // Continue button
+                    // MARK: - Continue CTA
+                    // Uses a shared component; enabled state is driven by VM.canContinue and isLoading.
                     ContinueButton(
                         title: vm.isLoading ? "Signing Up..." : "CONTINUE",
                         enabled: vm.canContinue && !vm.isLoading,
@@ -170,15 +180,18 @@ struct SignUpView: View {
                     Spacer()
                 }
             }
-            // Navigation
+            // MARK: - Programmatic Navigation
+            // Navigation is driven by boolean flags in the VM to keep the View dumb.
             .navigationDestination(isPresented: $vm.goToSignIn) {
                 SignInView()
                     .navigationBarBackButtonHidden(true)
             }
             .navigationDestination(isPresented: $vm.showEmailVerification) {
-                EmailVerificationFlowView(email: vm.email)  // your existing screen
+                // ViewModel sets this to true after creating the user and sending the email.
+                EmailVerificationFlowView(email: vm.email)
                     .navigationBarBackButtonHidden(true)
             }
+            // MARK: - Placeholder Alerts
             .alert(vm.alertMessage, isPresented: $vm.showSocialAlert) {
                 Button("OK", role: .cancel) { }
             }

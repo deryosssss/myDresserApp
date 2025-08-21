@@ -39,7 +39,7 @@ struct DeleteAccountConfirmView: View {
                                 .font(.system(size: 22))
                         }
                         Text("I understand I cannot recover my account")
-                            .font(AppFont.agdasima(size: 15))
+                            .font(AppFont.agdasima(size: 18))
                             .foregroundColor(.black)
                     }
                     .padding(.top, 140)
@@ -54,7 +54,7 @@ struct DeleteAccountConfirmView: View {
                     HStack {
                         Button(action: { goToHome = true }) {
                             Text("Cancel")
-                                .font(AppFont.agdasima(size: 17))
+                                .font(AppFont.agdasima(size: 20))
                                 .foregroundColor(.black)
                         }
                         Spacer()
@@ -62,7 +62,7 @@ struct DeleteAccountConfirmView: View {
                             HStack(spacing: 8) {
                                 if isWorking { ProgressView().scaleEffect(0.9) }
                                 Text(isWorking ? "Deleting…" : "Delete My Account")
-                                    .font(AppFont.agdasima(size: 17))
+                                    .font(AppFont.agdasima(size: 20))
                             }
                             .foregroundColor(.red)
                         }
@@ -76,7 +76,7 @@ struct DeleteAccountConfirmView: View {
                         .navigationBarBackButtonHidden(true)
                 }
                 .navigationDestination(isPresented: $goToHome) {
-                    HomeView()
+                    RootView()
                         .navigationBarBackButtonHidden(true)
                 }
             }

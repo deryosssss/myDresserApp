@@ -4,9 +4,6 @@
 //
 //  Created by Derya Baglan on 30/07/2025.
 //
-
-// resendEmail() → Sends a fresh verification link and shows a success/error message.
-// confirmedEmail() → Reloads the Firebase user to check verification status; if verified, sets goToProfileSetup = true to trigger navigation.
 // Works hand-in-hand with EmailVerificationView to display feedback and handle user actions.
                                                                                 
 import Foundation
@@ -25,6 +22,7 @@ class EmailVerificationViewModel: ObservableObject {
         self.email = email
     }
 
+// resendEmail() → Sends a fresh verification link and shows a success/error message.
     func resendEmail() {
         message = ""
         isLoading = true
@@ -40,6 +38,7 @@ class EmailVerificationViewModel: ObservableObject {
         }
     }
 
+// confirmedEmail() → Reloads the Firebase user to check verification status; if verified, sets goToProfileSetup = true to trigger navigation.
     func confirmedEmail() {
         message = ""
         isLoading = true

@@ -2,9 +2,13 @@
 //  WardrobeStore.swift
 //  myFinalProject
 //
-//  Created by Derya Baglan on 11/08/2025.
+//  Created by Derya Baglan on 11/08/2025
 //
-
+//  1) Provides a small service to create a wardrobe item by uploading an image to Storage,
+//     then writing the item document under users/{uid}/items/{itemId} in Firestore.
+//  2) Supports full deletion: removes the Firestore doc and (best-effort) deletes the image blob.
+//  3) Internally uploads with a 10MB cap by downscaling/compressing to JPEG (~1600px max side) if needed.
+//
 
 import Foundation
 import UIKit
@@ -30,14 +34,16 @@ final class WardrobeStore {
         fileExtension: String = "jpg",
         contentType: String = "image/jpeg"
     ) async throws -> String {
-        guard let uid = Auth.auth().currentUser?.uid else { throw WardrobeStoreError.notSignedIn }
-        let itemId = UUID().uuidString
+        guard let uid = Auth.auth().currentUser?.uid else { throw WardrobeStoreError.notSignedIn } // must be signed in
+        let itemId = UUID().uuidString                                                                // client id for doc + blob
 
+        // 1) Upload the image and get public URL + storage path
         let uploaded = try await uploadImageForItem(
             uid: uid, itemId: itemId, data: imageData,
             fileExtension: fileExtension, contentType: contentType
         )
 
+        // 2) Create Firestore document with imageURL/path wired in
         let col = db.collection("users").document(uid).collection("items")
         var data = base.toFirestoreData()
         data["id"] = itemId
@@ -45,17 +51,17 @@ final class WardrobeStore {
         data["imageURL"] = uploaded.url
         data["imagePath"] = uploaded.path
 
-        try await col.document(itemId).setData(data)
+        try await col.document(itemId).setData(data)                                                 // write document
         return itemId
     }
 
     /// Best-effort delete of Firestore doc + its Storage blob.
     func deleteItemCompletely(itemId: String, imagePath: String?) async throws {
-        guard let uid = Auth.auth().currentUser?.uid else { throw WardrobeStoreError.notSignedIn }
+        guard let uid = Auth.auth().currentUser?.uid else { throw WardrobeStoreError.notSignedIn }   // require auth
         let doc = db.collection("users").document(uid).collection("items").document(itemId)
-        try await doc.delete()
+        try await doc.delete()                                                                        // delete doc first
         if let p = imagePath {
-            try? await StorageBucket.instance.reference(withPath: p).delete()
+            try? await StorageBucket.instance.reference(withPath: p).delete()                         // ignore blob failure
         }
     }
 
@@ -69,11 +75,11 @@ final class WardrobeStore {
         contentType: String
     ) async throws -> UploadedImage {
         // Ensure we never exceed the 10MB rule; downscale/compress if needed.
-        var contentType = contentType
+        var contentType = contentType                                                                 // may be changed to image/jpeg
         let maxBytes = 10 * 1024 * 1024
         let preparedData = ensureUnderLimit(data, preferredContentType: &contentType, maxBytes: maxBytes)
 
-        let path = "wardrobe_images/\(uid)/\(itemId).\(fileExtension)"
+        let path = "wardrobe_images/\(uid)/\(itemId).\(fileExtension)"                                // deterministic path
         let ref = StorageBucket.instance.reference(withPath: path)
 
         #if DEBUG
@@ -81,9 +87,11 @@ final class WardrobeStore {
         print("[WardrobeStore] Bytes:", preparedData.count, "Content-Type:", contentType)
         #endif
 
+        // Set content type metadata for proper serving
         let meta = StorageMetadata()
         meta.contentType = contentType
 
+        // Upload bytes (async bridge over callback API)
         _ = try await withCheckedThrowingContinuation { (cont: CheckedContinuation<StorageMetadata, Error>) in
             ref.putData(preparedData, metadata: meta) { metadata, err in
                 if let err = err { cont.resume(throwing: err) }
@@ -91,6 +99,7 @@ final class WardrobeStore {
             }
         }
 
+        // Retrieve a public download URL
         let url = try await withCheckedThrowingContinuation { (cont: CheckedContinuation<URL, Error>) in
             ref.downloadURL { url, err in
                 if let err = err { cont.resume(throwing: err) }
@@ -106,11 +115,10 @@ final class WardrobeStore {
         // If already small enough, keep as-is.
         if data.count <= maxBytes { return data }
 
-        // Try to decode and re-encode smaller.
-        guard let img = UIImage(data: data) else { return data } // fallback: let rules reject it
+        // Decode to UIImage; if that fails, return original (Storage will reject oversize).
+        guard let img = UIImage(data: data) else { return data }
 
-        // If transparency is not critical, JPEG is much smaller.
-        // Downscale to ~1600px max side and compress.
+        // Downscale to ~1600px max side and compress to JPEG; reduce quality until under limit.
         let targetMax: CGFloat = 1600
         let resized = resize(img, maxSide: targetMax)
 
@@ -127,7 +135,7 @@ final class WardrobeStore {
     private func resize(_ image: UIImage, maxSide: CGFloat) -> UIImage {
         let size = image.size
         let m = max(size.width, size.height)
-        guard m > maxSide else { return image }
+        guard m > maxSide else { return image }                                                      // no-op if already small
         let scale = maxSide / m
         let newSize = CGSize(width: size.width * scale, height: size.height * scale)
         UIGraphicsBeginImageContextWithOptions(newSize, true, 1.0)

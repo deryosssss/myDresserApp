@@ -1,16 +1,18 @@
+//
 //  TaggedItemPreviewView.swift
 //  myFinalProject
 //
-//  Created by Derya Baglan on 01/08/2025.
+//  Created by Derya Baglan on 01/08/2025
 //
-
+//  1) Shows the auto-tagged image and metadata so you can review & edit before saving.
+//  2) Lets you tweak chips (category/length/etc.), colour tags (with hex mapping), source, gender, favorite.
+//  3) On Save → uploads image + saves WardrobeItem; on Delete → clears form and dismisses.
+//
 
 import SwiftUI
 import UIKit
 
 // MARK: - Color Helpers
-// NOTE: Make sure this init(hex:) exists only once in your project.
-// If you already defined it elsewhere, remove this duplicate.
 extension Color {
     init?(hex: String) {
         var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -42,7 +44,7 @@ struct TaggedItemPreviewView: View {
     @State private var editingField: EditableField?
     @State private var draftText = ""
 
-    // NEW — show a small info banner letting the user know we auto-categorised
+    // Small info banner to explain auto-categorisation
     @State private var showAutoBanner: Bool = true
 
     private func norm(_ s: String) -> String {
@@ -56,7 +58,7 @@ struct TaggedItemPreviewView: View {
                     .font(AppFont.spicyRice(size: 28))
                     .padding(.top)
 
-                // Info banner (dismissible)
+                // Dismissible info banner about auto-tags
                 if showAutoBanner {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: "info.circle.fill").imageScale(.large)
@@ -91,6 +93,7 @@ struct TaggedItemPreviewView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
+                // Large image preview
                 Image(uiImage: originalImage)
                     .resizable()
                     .scaledToFit()
@@ -99,15 +102,15 @@ struct TaggedItemPreviewView: View {
                     .cornerRadius(12)
                     .padding(.horizontal)
 
-                // ===== Colours =====
+                // ===== Colours (chips) =====
                 if !taggingVM.colours.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Colours").bold().padding(.horizontal)
 
+                        // Horizontal list of colour chips, using stored hex map where possible
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 6) {
                                 ForEach(taggingVM.colours, id: \.self) { name in
-                                    // background from the saved map (preferred), fallback to name if it is a hex
                                     let key = norm(name)
                                     let hex = taggingVM.colorHexByName[key] ?? name
                                     let bg = Color(hex: hex) ?? .gray
@@ -120,14 +123,14 @@ struct TaggedItemPreviewView: View {
                                         .foregroundColor(Color.isDark(hex: hex) ? .white : .black)
                                         .cornerRadius(12)
                                 }
-                                TinyEditButton { startEditing(.colours) }
+                                TinyEditButton { startEditing(.colours) }              // open edit sheet for colours
                             }
                             .padding(.horizontal)
                         }
                     }
                 }
 
-                // ===== Chips =====
+                // ===== Single-value chips (tap to edit) =====
                 ChipRowView(title: "Category",         text: taggingVM.category)      { startEditing(.category) }
                 ChipRowView(title: "Sub Category",     text: taggingVM.subcategory)   { startEditing(.subcategory) }
                 ChipRowView(title: "Length",           text: taggingVM.length)        { startEditing(.length) }
@@ -137,17 +140,18 @@ struct TaggedItemPreviewView: View {
                 ChipRowView(title: "Fit",              text: taggingVM.fit)           { startEditing(.fit) }
                 ChipRowView(title: "Material",         text: taggingVM.material)      { startEditing(.material) }
 
-                ChipSectionView(title: "Custom Tags", chips: taggingVM.tags) { startEditing(.customTags) }
-                ChipRowView(title: "Dress Code",       text: taggingVM.dressCode)   { startEditing(.dressCode) }
-                ChipRowView(title: "Season",           text: taggingVM.season)      { startEditing(.season) }
-                ChipRowView(title: "Size",             text: taggingVM.size)        { startEditing(.size) }
-                ChipSectionView(title: "Mood Tags",    chips: taggingVM.moodTags)   { startEditing(.moodTags) }
+                // ===== Multi-value chips =====
+                ChipSectionView(title: "Custom Tags", chips: taggingVM.tags)     { startEditing(.customTags) }
+                ChipRowView(title: "Dress Code",       text: taggingVM.dressCode) { startEditing(.dressCode) }
+                ChipRowView(title: "Season",           text: taggingVM.season)    { startEditing(.season) }
+                ChipRowView(title: "Size",             text: taggingVM.size)      { startEditing(.size) }
+                ChipSectionView(title: "Mood Tags",    chips: taggingVM.moodTags) { startEditing(.moodTags) }
 
                 // MARK: — More (Source / Gender / Favorite)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("More").bold().padding(.horizontal)
 
-                    // Source type
+                    // Source type (camera/gallery/web)
                     HStack {
                         Text("Source").font(.subheadline)
                         Spacer()
@@ -161,7 +165,7 @@ struct TaggedItemPreviewView: View {
                     }
                     .padding(.horizontal)
 
-                    // Gender
+                    // Gender presentation
                     HStack {
                         Text("Gender").font(.subheadline)
                         Spacer()
@@ -184,11 +188,11 @@ struct TaggedItemPreviewView: View {
                 }
                 .padding(.top, 4)
 
-                // Actions
+                // Save / Delete actions
                 HStack(spacing: 12) {
                     Button("Delete") {
-                        taggingVM.clearAll()
-                        onDismiss()
+                        taggingVM.clearAll()   // reset form state
+                        onDismiss()            // close sheet
                     }
                     .font(.subheadline)
                     .frame(maxWidth: .infinity)
@@ -198,7 +202,7 @@ struct TaggedItemPreviewView: View {
                     .cornerRadius(8)
 
                     Button("Save") {
-                        taggingVM.uploadAndSave(image: originalImage)
+                        taggingVM.uploadAndSave(image: originalImage) // upload + Firestore save
                         onDismiss()
                     }
                     .font(.subheadline)
@@ -215,6 +219,7 @@ struct TaggedItemPreviewView: View {
         .background(Color.white)
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 2)
+        // Edit modal (single & list modes share one EditSheet)
         .sheet(item: $editingField) { field in
             EditSheet(
                 draftText:          $draftText,
@@ -232,6 +237,7 @@ struct TaggedItemPreviewView: View {
     // MARK: - Bindings & Editing
 
     private func startEditing(_ field: EditableField) {
+        // Seed draft text for single-value fields; blank for list fields
         switch field {
         case .colours, .customTags, .moodTags:
             draftText = ""
@@ -251,6 +257,7 @@ struct TaggedItemPreviewView: View {
         editingField = field
     }
 
+    // Single-field writers (called by EditSheet on Save)
     private var singleBindings: [EditableField: (String) -> Void] {
         [
             .category:      { taggingVM.category      = $0 },
@@ -267,13 +274,12 @@ struct TaggedItemPreviewView: View {
         ]
     }
 
+    // List add actions (append item and maintain colour hex map when user typed a hex)
     private var listAddBindings: [EditableField: (String) -> Void] {
         [
             .colours:    {
-                // Add the colour name; if user typed a hex string, capture it.
                 taggingVM.colours.append($0)
                 let key = norm($0)
-                // If the string itself looks like hex, store it; otherwise leave as-is (no hex).
                 let cleaned = $0.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "#", with: "")
                 if cleaned.count == 6, Int(cleaned, radix: 16) != nil {
                     taggingVM.colorHexByName[key] = cleaned
@@ -284,6 +290,7 @@ struct TaggedItemPreviewView: View {
         ]
     }
 
+    // List remove actions (also purge colour hex map entry)
     private var listRemoveBindings: [EditableField: (String) -> Void] {
         [
             .colours:    { value in
@@ -295,6 +302,7 @@ struct TaggedItemPreviewView: View {
         ]
     }
 
+    // List readers (EditSheet reads from these to show current chips)
     private var listReadBindings: [EditableField: () -> [String]] {
         [
             .colours:    { taggingVM.colours },

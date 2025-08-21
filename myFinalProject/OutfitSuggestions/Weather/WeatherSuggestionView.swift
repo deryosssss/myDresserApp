@@ -7,7 +7,8 @@
 
 import SwiftUI
 
-// Layout constants for the suggestion UI
+// MARK: - Layout
+// Centralize “magic numbers” for easy tuning and consistent spacing/sizing across the screen.
 private enum WXLayout {
     static let cardCorner: CGFloat = 14
     static let cardPadding: CGFloat = 12
@@ -16,7 +17,8 @@ private enum WXLayout {
     static let buttonHeight: CGFloat = 28
 }
 
-// Shared date formatter for the header date
+// Shared date formatter for the header date.
+// Doing this once (static) avoids recreating DateFormatter (which is expensive) on every render.
 private let fullDateFormatter: DateFormatter = {
     let f = DateFormatter()
     f.dateStyle = .medium
@@ -25,22 +27,23 @@ private let fullDateFormatter: DateFormatter = {
 }()
 
 /// Presents weather-aware outfit suggestions as cards:
-/// - Header shows temperature + icon + date
-/// - List of suggestion cards (Skip/Save)
-/// - On Save → opens preview sheet to confirm + persist
+/// • Header shows temperature + icon + date
+/// • List of suggestion cards (Skip/Save)
+/// • On Save → opens preview sheet to confirm + persist
 struct WeatherSuggestionView: View {
-    // Orchestrator for fetching API/local candidates and persisting outfits
+    // Orchestrates fetching suggestions and persisting the chosen outfit.
+    // StateObject ensures a single VM instance for the view’s lifetime (no re-creation on re-render).
     @StateObject private var vm: WeatherSuggestionViewModel
 
-    // Preview sheet state
+    // Local UI state used only by this view (preview sheet).
     @State private var previewItems: [WardrobeItem] = []
     @State private var showPreview = false
 
-    // Optional: if user picks a different day; displayed in header
+    // Optional override for the date shown in the header (kept for future calendar selection).
     @State private var selectedDate: Date? = nil
 
-    /// Injects context (user, location, rain flag) and header visuals
-    /// `vm` is created here so it lives as long as this view.
+    /// Injects context (user/location/weather) and header visuals.
+    /// The VM is created here so dependencies are passed once and retained by @StateObject.
     init(
         userId: String,
         lat: Double,
@@ -73,12 +76,12 @@ struct WeatherSuggestionView: View {
 
                         // ===== Cards =====
                         if vm.cards.isEmpty && !vm.isLoading {
-                            // When no suggestions (and not loading), show a gentle empty state
+                            // Empty state appears only when not loading and no results.
                             emptyState
                                 .padding(.horizontal)
                                 .padding(.top, 24)
                         } else {
-                            // Render each suggestion card; "Save" triggers preview sheet
+                            // Render each suggestion card. Save → open preview; Skip → ask VM for a new one.
                             ForEach(vm.cards) { card in
                                 SuggestionCard(
                                     candidate: card,
@@ -92,6 +95,7 @@ struct WeatherSuggestionView: View {
                         }
 
                         if vm.isLoading {
+                            // Lightweight activity indicator while VM is building cards.
                             ProgressView().padding(.vertical, 24)
                         }
 
@@ -103,20 +107,22 @@ struct WeatherSuggestionView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
 
-            // Kick off initial load once when the view appears
+            // Kick off initial load once when the view appears.
+            // Using .task (vs .onAppear) plays nicer with SwiftUI’s concurrency.
             .task { await vm.loadInitial() }
 
-            // Simple error alert (dismiss resets message)
+            // Simple error alert; tapping OK clears the VM message.
             .alert("Error", isPresented: .constant(vm.errorMessage != nil)) {
                 Button("OK") { vm.errorMessage = nil }
             } message: { Text(vm.errorMessage ?? "") }
 
-            // Preview sheet → allows naming/confirming, then saving the outfit
+            // Preview sheet lets the user name/confirm before persisting the outfit to Firestore.
             .sheet(isPresented: $showPreview) {
                 OutfitPreviewSheet(
                     items: previewItems,
                     onClose: { showPreview = false },
                     onSave: { name, occasion, date, description, isFav in
+                        // Save via VM (async), then close the sheet.
                         Task {
                             await vm.saveOutfit(
                                 name: name,
@@ -135,7 +141,8 @@ struct WeatherSuggestionView: View {
     }
 
     // MARK: Header (centered)
-    /// Temperature + icon + date (uses vm’s values; `selectedDate` overrides display if set)
+    /// Temperature + icon + date. Falls back to a system icon if none provided.
+    /// `selectedDate` (if set) overrides the VM date in the header.
     private var header: some View {
         VStack(spacing: 4) {
             HStack(spacing: 10) {
@@ -145,7 +152,7 @@ struct WeatherSuggestionView: View {
                             .resizable()
                             .frame(width: 42, height: 42)
                     } else {
-                        // Fallback symbol when no icon image supplied
+                        // Fallback SF Symbol so the UI doesn’t look empty.
                         Image(systemName: "cloud.sun")
                             .symbolRenderingMode(.multicolor)
                             .font(.system(size: 36))
@@ -153,7 +160,7 @@ struct WeatherSuggestionView: View {
                 }
                 Text(vm.temperature)
                     .font(AppFont.spicyRice(size: 36))
-                    .baselineOffset(2)
+                    .baselineOffset(2) // visually aligns text with the icon
             }
             .frame(maxWidth: .infinity)
             .multilineTextAlignment(.center)
@@ -179,6 +186,7 @@ struct WeatherSuggestionView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button {
+                // Re-run the generator; useful after adding items.
                 Task { await vm.loadInitial() }
             } label: {
                 Text("Try again")
@@ -201,6 +209,7 @@ struct WeatherSuggestionView: View {
 // MARK: - Card
 
 /// Renders a grid of thumbnails for the candidate items + Skip/Save actions.
+/// Uses a 2-column LazyVGrid for a tidy, scannable layout.
 private struct SuggestionCard: View {
     let candidate: WeatherOutfitCandidate
     var onSkip: () -> Void
@@ -214,7 +223,7 @@ private struct SuggestionCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Thumbnails (ordered for a tidy look)
+            // Thumbnails (ordered for a tidy look, provided by candidate.orderedItems).
             LazyVGrid(columns: cols, spacing: WXLayout.gridSpacing) {
                 ForEach(candidate.orderedItems, id: \.id) { item in
                     AsyncImage(url: URL(string: item.imageURL)) { phase in
@@ -222,12 +231,14 @@ private struct SuggestionCard: View {
                         case .success(let img):
                             img.resizable().scaledToFit()
                                 .frame(width: WXLayout.thumbSize.width, height: WXLayout.thumbSize.height)
-                                .background(Color(.secondarySystemBackground))
+                                .background(Color(.secondarySystemBackground)) // soft white frame
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                         case .empty:
+                            // While loading, show a light progress placeholder.
                             ProgressView()
                                 .frame(width: WXLayout.thumbSize.width, height: WXLayout.thumbSize.height)
                         default:
+                            // Network/error fallback to keep the grid shape intact.
                             Color(.tertiarySystemFill)
                                 .frame(width: WXLayout.thumbSize.width, height: WXLayout.thumbSize.height)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -237,7 +248,7 @@ private struct SuggestionCard: View {
                 }
             }
 
-            // Actions: Skip (pink) / Save (green)
+            // Actions: Skip gives a different combo; Save opens the confirmation sheet.
             HStack(spacing: 10) {
                 Button(role: .cancel, action: onSkip) {
                     Text("Skip")
@@ -260,6 +271,7 @@ private struct SuggestionCard: View {
         }
         .padding(WXLayout.cardPadding)
         .background(
+            // Card look that matches other sections in the app (soft gray panel).
             RoundedRectangle(cornerRadius: WXLayout.cardCorner)
                 .fill(Color(.systemGray6))
         )

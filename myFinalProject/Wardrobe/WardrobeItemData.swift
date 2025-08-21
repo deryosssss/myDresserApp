@@ -2,7 +2,10 @@
 //  WardrobeItemData.swift
 //  myFinalProject
 //
-//  Created by Derya Baglan on 01/08/2025.
+//  Created by Derya Baglan on 01/08/2025
+//
+//  1) Defines the WardrobeItem model (Codable + Identifiable) used across the app.
+//  2) Provides two payload builders: `toFirestoreData()` for create and `dictionary` for partial updates.
 //
 
 import Foundation
@@ -11,13 +14,13 @@ import FirebaseFirestore
 struct WardrobeItem: Identifiable, Codable {
     // MARK: - New types
     enum SourceType: String, Codable, CaseIterable {
-        case camera, gallery, web
+        case camera, gallery, web // where the image came from
     }
 
     // MARK: - Identity & media
-    var id: String?
-    var userId: String
-    var imageURL: String
+    var id: String?                 // Firestore document id (set after save)
+    var userId: String              // owner uid
+    var imageURL: String            // public URL used by UI
     /// Storage path of the primary image (authoritative for deletes/migrations)
     var imagePath: String?
 
@@ -69,7 +72,7 @@ struct WardrobeItem: Identifiable, Codable {
         season: String,
         size: String,
         colours: [String],
-        colorHexByName: [String:String] = [:],   // ✅ accept map
+        colorHexByName: [String:String] = [:],
         customTags: [String],
         moodTags: [String],
         // NEW with sensible defaults
@@ -96,7 +99,7 @@ struct WardrobeItem: Identifiable, Codable {
         self.season = season
         self.size = size
         self.colours = colours
-        self.colorHexByName = colorHexByName    // ✅ store map
+        self.colorHexByName = colorHexByName
         self.customTags = customTags
         self.moodTags = moodTags
         self.isFavorite = isFavorite
@@ -106,6 +109,7 @@ struct WardrobeItem: Identifiable, Codable {
         self.lastWorn = lastWorn
     }
 
+    /// Build a Firestore CREATE payload (includes server `addedAt`; omits id so Firestore assigns it).
     func toFirestoreData() -> [String: Any] {
         var data: [String: Any] = [
             "userId": userId,
@@ -122,12 +126,12 @@ struct WardrobeItem: Identifiable, Codable {
             "season": season,
             "size": size,
             "colours": colours,
-            "colorHexByName": colorHexByName,   // ✅ persist map
+            "colorHexByName": colorHexByName,
             "customTags": customTags,
             "moodTags": moodTags,
-            "isFavorite": isFavorite,           // NEW
-            "sourceType": sourceType.rawValue,  // NEW
-            "gender": gender,                   // NEW
+            "isFavorite": isFavorite,
+            "sourceType": sourceType.rawValue,
+            "gender": gender,
             "addedAt": FieldValue.serverTimestamp()
         ]
         if let imagePath { data["imagePath"] = imagePath }
@@ -138,7 +142,7 @@ struct WardrobeItem: Identifiable, Codable {
 }
 
 extension WardrobeItem {
-    /// Update payload (no addedAt so we don't clobber it).
+    /// Build a Firestore UPDATE payload (no `addedAt`; clears optional fields when nil).
     var dictionary: [String: Any] {
         var data: [String: Any] = [
             "userId": userId,
@@ -155,12 +159,12 @@ extension WardrobeItem {
             "season": season,
             "size": size,
             "colours": colours,
-            "colorHexByName": colorHexByName,   // ✅ persist map on updates
+            "colorHexByName": colorHexByName,
             "customTags": customTags,
             "moodTags": moodTags,
-            "isFavorite": isFavorite,           // NEW
-            "sourceType": sourceType.rawValue,  // NEW
-            "gender": gender                    // NEW
+            "isFavorite": isFavorite,
+            "sourceType": sourceType.rawValue,
+            "gender": gender
         ]
 
         if let imagePath {

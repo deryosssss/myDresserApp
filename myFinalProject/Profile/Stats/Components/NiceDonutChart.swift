@@ -4,6 +4,10 @@
 //
 //  Updated: non-rounded slice ends (no .round caps)
 //
+//  - This file renders an interactive donut chart in SwiftUI.
+//  - Slices are derived from raw Double "value"s that are normalized to sum to 1.0.
+//  - Selecting a slice "explodes" (offsets) it slightly, thickens its stroke, and
+//    updates the center label + legend highlight. Tapping again clears selection.
 
 import SwiftUI
 import UIKit   // haptics

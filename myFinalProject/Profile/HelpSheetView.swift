@@ -113,7 +113,7 @@ struct HelpSheetView: View {
                     LabeledRow(
                         icon: "paintpalette",
                         title: "Colours with swatches",
-                        detail: "We store color names **and** hex codes so you can filter by color and see swatches across the app."
+                        detail: "We store color names and hex codes so you can filter by color and see swatches across the app."
                     )
                 }
 

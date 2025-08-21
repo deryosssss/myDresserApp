@@ -2,7 +2,11 @@
 //  AddItemWebView.swift
 //  myFinalProject
 //
-//  Created by You on 31/07/2025.
+//  Created by Derya on 31/07/2025
+//
+//  1) Embeds a web browser (images.google.com) and lets you snapshot the page.
+//  2) Opens a full-screen cropper → optional background removal → auto-tag the result.
+//  3) Shows a preview sheet to confirm/save the cropped image as a wardrobe item.
 //
 
 import SwiftUI
@@ -16,14 +20,14 @@ private struct PreviewImage: Identifiable {
 }
 
 struct AddItemWebView: View {
-    @StateObject private var webVM = WebViewCropperViewModel()
-    @StateObject private var taggingVM = ImageTaggingViewModel()
-    @StateObject private var removeBg = RemoveBgClient()
+    @StateObject private var webVM = WebViewCropperViewModel()   // manages WKWebView + snapshot + crop state
+    @StateObject private var taggingVM = ImageTaggingViewModel() // runs auto-tagging + save flow
+    @StateObject private var removeBg = RemoveBgClient()         // background removal service
 
     /// The image that has been cropped from the web snapshot
-    @State private var previewImage: PreviewImage?
+    @State private var previewImage: PreviewImage?               // drives preview sheet
     /// Controls presentation of the preview sheet
-    @State private var showingPreview = false
+    @State private var showingPreview = false                    // (kept for flow clarity; sheet uses previewImage)
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -34,7 +38,7 @@ struct AddItemWebView: View {
             )
             .edgesIgnoringSafeArea(.all)
 
-            // 2) Snapshot button
+            // 2) Snapshot button (captures current web view to an image)
             Button(action: webVM.captureSnapshot) {
                 Image(systemName: "camera.circle.fill")
                     .resizable()
@@ -42,11 +46,12 @@ struct AddItemWebView: View {
                     .padding()
             }
         }
-        // 3) Fullscreen cropper
+        // 3) Fullscreen cropper appears after snapshot
         .fullScreenCover(isPresented: $webVM.showingCrop) {
             if let img = webVM.capturedImage {
                 CropImageView(image: img) { cropped in
                     webVM.showingCrop = false
+                    // Remove background, then prepare preview + auto-tag
                     removeBg.removeBackground(from: cropped) { result in
                         DispatchQueue.main.async {
                             let finalImg: UIImage
@@ -63,7 +68,7 @@ struct AddItemWebView: View {
                 }
             }
         }
-        // 4) Preview sheet now uses PreviewImage (Identifiable)
+        // 4) Preview sheet driven by PreviewImage (Identifiable)
         .sheet(item: $previewImage) { item in
             TaggedItemPreviewView(
                 originalImage: item.ui,
@@ -74,7 +79,7 @@ struct AddItemWebView: View {
             )
         }
 
-        // 5) Overlay loading/errors
+        // 5) Overlay loading/errors for tagging flow
         .overlay(
             VStack {
                 if taggingVM.isLoading {

@@ -1,19 +1,13 @@
-
 //
 //  AddItemCameraView.swift
 //  myFinalProject
 //
-//  Created by Derya Baglan on 31/07/2025.
+//  Created by Derya Baglan on 31/07/2025
 //
+//  1) Lets you add wardrobe items from Camera Roll or the Web (segmented tabs).
+//  2) From the library: capture via camera or pick photos; auto-remove background and auto-tag.
+//  3) Shows a preview sheet per picked image to confirm/save; progress/error overlay while tagging.
 //
-//
-//
-//  AddItemCameraView.swift
-//  myFinalProject
-//
-//  Created by Derya Baglan on 31/07/2025.
-//
-
 
 import SwiftUI
 import PhotosUI
@@ -30,20 +24,20 @@ struct AddItemCameraView: View {
 
     // MARK: — State
 
-    @State private var selectedTab: Tab = .library
-    @State private var showingCamera = false
-    @State private var pickerItems: [PhotosPickerItem] = []
-    @State private var photos: [UIImage] = []
+    @State private var selectedTab: Tab = .library                  // which tab is active
+    @State private var showingCamera = false                        // camera modal visibility
+    @State private var pickerItems: [PhotosPickerItem] = []         // selected photo library items
+    @State private var photos: [UIImage] = []                       // thumbnails currently shown
 
-    @State private var previewImage: PreviewImage?
+    @State private var previewImage: PreviewImage?                  // drives preview sheet
 
-    @StateObject private var taggingVM = ImageTaggingViewModel()
-    @StateObject private var removeBg = RemoveBgClient()
+    @StateObject private var taggingVM = ImageTaggingViewModel()    // auto-tagging pipeline
+    @StateObject private var removeBg = RemoveBgClient()            // background removal service
 
     private let gridColumns = Array(
         repeating: GridItem(.flexible(), spacing: 8),
         count: 3
-    )
+    ) // 3-up grid for camera/library buttons + thumbnails
 
     // MARK: — Body
 
@@ -67,17 +61,17 @@ struct AddItemCameraView: View {
 
             // 2) Content
             if selectedTab == .library {
-                libraryGrid
+                libraryGrid                                         // camera + picker + thumbnails
             } else {
-                AddItemWebView()
+                AddItemWebView()                                    // separate web-scrape/import flow
             }
         }
         // 3) Overlay tagging progress/errors
         .overlay(
             VStack {
-                if taggingVM.isLoading { ProgressView("Saving…") }
+                if taggingVM.isLoading { ProgressView("Saving…") }  // simple progress banner
                 if let err = taggingVM.errorMessage {
-                    Text(err).foregroundColor(.red)
+                    Text(err).foregroundColor(.red)                  // show tagging error (if any)
                 }
             }
             .padding(),
@@ -89,8 +83,8 @@ struct AddItemCameraView: View {
                 originalImage: item.ui,
                 taggingVM: taggingVM,
                 onDismiss: {
-                    // both save & delete now just dismiss
-                    photos.removeAll { $0 === item.ui }
+                    // both save & delete now just dismiss (remove this image from thumbnails)
+                    photos.removeAll { $0 === item.ui }             // UIImage is a class → identity compare
                     previewImage = nil
                 }
             )
@@ -114,17 +108,18 @@ struct AddItemCameraView: View {
                     .cornerRadius(8)
                 }
                 .sheet(isPresented: $showingCamera) {
+                    // UIKit camera wrapper; returns a UIImage or nil
                     CameraImagePicker { image in
                         showingCamera = false
                         guard let img = image else { return }
-                        processPickedImage(img)
+                        processPickedImage(img)                      // remove bg + auto-tag + open preview
                     }
                 }
 
                 // Photo library button
                 PhotosPicker(
                     selection: $pickerItems,
-                    maxSelectionCount: .max,
+                    maxSelectionCount: .max,                        // allow multi-select
                     matching: .images
                 ) {
                     ZStack {
@@ -137,6 +132,7 @@ struct AddItemCameraView: View {
                     .cornerRadius(8)
                 }
                 .onChange(of: pickerItems) { newItems in
+                    // Load each selected item as Data → UIImage, then process
                     for item in newItems {
                         item.loadTransferable(type: Data.self) { result in
                             if case let .success(data?) = result,
@@ -147,7 +143,7 @@ struct AddItemCameraView: View {
                             }
                         }
                     }
-                    pickerItems = []
+                    pickerItems = []                                 // clear selection to allow re-pick
                 }
 
                 // Thumbnails
@@ -167,7 +163,7 @@ struct AddItemCameraView: View {
     // MARK: — Helpers
 
     private func processPickedImage(_ img: UIImage) {
-        // 1) strip background
+        // 1) Strip background (async); fall back to original if it fails
         removeBg.removeBackground(from: img) { result in
             DispatchQueue.main.async {
                 let finalImage: UIImage
@@ -178,7 +174,7 @@ struct AddItemCameraView: View {
                     finalImage = img
                 }
 
-                // 2) show & tag
+                // 2) Show thumbnail + open preview + kick off auto-tagging
                 photos.append(finalImage)
                 previewImage = PreviewImage(ui: finalImage)
                 taggingVM.autoTag(image: finalImage)
@@ -191,7 +187,7 @@ struct AddItemCameraView: View {
 
 /// Wraps `UIImagePickerController` for camera capture.
 struct CameraImagePicker: UIViewControllerRepresentable {
-    var completion: (UIImage?) -> Void
+    var completion: (UIImage?) -> Void                           // callback with captured image (or nil)
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
@@ -212,17 +208,14 @@ struct CameraImagePicker: UIViewControllerRepresentable {
             _ picker: UIImagePickerController,
             didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
         ) {
-            let image = info[.originalImage] as? UIImage
-            parent.completion(image)
+            let image = info[.originalImage] as? UIImage          // grab original image
+            parent.completion(image)                              // forward to SwiftUI
             picker.dismiss(animated: true)
         }
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            parent.completion(nil)
+            parent.completion(nil)                                // user cancelled
             picker.dismiss(animated: true)
         }
     }
 }
-
-
-

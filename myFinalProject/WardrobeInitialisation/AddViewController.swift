@@ -2,7 +2,11 @@
 //  AddViewController.swift
 //  myFinalProject
 //
-//  Created by Derya Baglan on 31/07/2025.
+//  Created by Derya Baglan on 31/07/2025
+//
+//  1) Shows a 2-column grid: first cell opens the camera; other cells are picked images.
+//  2) Lets you add photos via camera (UIImagePickerController) or multi-select library (PHPicker).
+//  3) Appends chosen images to a local array and refreshes the grid.
 //
 
 import UIKit
@@ -11,12 +15,12 @@ import PhotosUI
 class AddViewController: UIViewController {
   
   // MARK: - Data
-  private var images: [UIImage] = []
+  private var images: [UIImage] = []                      // in-memory images backing the grid
   
   // MARK: - UI
   private lazy var collectionView: UICollectionView = {
     let layout = UICollectionViewFlowLayout()
-    let side = (view.bounds.width - 3 * 10) / 2
+    let side = (view.bounds.width - 3 * 10) / 2           // 2 columns with 10pt insets/spacings
     layout.itemSize = CGSize(width: side, height: side)
     layout.minimumInteritemSpacing = 10
     layout.minimumLineSpacing = 10
@@ -31,11 +35,11 @@ class AddViewController: UIViewController {
   // MARK: - Lifecycle
   override func viewDidLoad() {
     super.viewDidLoad()
-    title = "Add"
+    title = "Add"                                         // nav title
     view.backgroundColor = .systemBackground
-    view.addSubview(collectionView)
+    view.addSubview(collectionView)                       // add grid
     collectionView.translatesAutoresizingMaskIntoConstraints = false
-    NSLayoutConstraint.activate([
+    NSLayoutConstraint.activate([                          // pin with 10pt margins
       collectionView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
       collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
       collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
@@ -47,12 +51,13 @@ class AddViewController: UIViewController {
   
   private func presentCamera() {
     guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+      // show friendly alert if camera is unavailable (e.g., Simulator)
       let ac = UIAlertController(title: "No Camera", message: "Camera not available on this device.", preferredStyle: .alert)
       ac.addAction(.init(title: "OK", style: .default))
       present(ac, animated: true)
       return
     }
-    let picker = UIImagePickerController()
+    let picker = UIImagePickerController()                // system camera UI
     picker.sourceType = .camera
     picker.delegate = self
     present(picker, animated: true)
@@ -61,7 +66,7 @@ class AddViewController: UIViewController {
   private func presentPhotoPicker() {
     var config = PHPickerConfiguration()
     config.selectionLimit = 0        // 0 = unlimited selection
-    config.filter = .images
+    config.filter = .images          // images only
     let picker = PHPickerViewController(configuration: config)
     picker.delegate = self
     present(picker, animated: true)
@@ -71,19 +76,17 @@ class AddViewController: UIViewController {
 // MARK: - UICollectionViewDataSource
 
 extension AddViewController: UICollectionViewDataSource {
-  func numberOfSections(in collectionView: UICollectionView) -> Int { 1 }
+  func numberOfSections(in collectionView: UICollectionView) -> Int { 1 }   // single section
   func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-    // +1 for the “camera” cell
-    return images.count + 1
+    return images.count + 1                                                 // +1 for the camera cell
   }
   
   func collectionView(_ cv: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
     let cell = cv.dequeueReusableCell(withReuseIdentifier: ImageCell.reuseID, for: indexPath) as! ImageCell
     if indexPath.item == 0 {
-      // camera icon
-      cell.configureAsCamera()
+      cell.configureAsCamera()                                              // first cell shows camera icon
     } else {
-      cell.configure(with: images[indexPath.item - 1])
+      cell.configure(with: images[indexPath.item - 1])                      // other cells show images
     }
     return cell
   }
@@ -95,11 +98,9 @@ extension AddViewController: UICollectionViewDelegate {
   func collectionView(_ cv: UICollectionView, didSelectItemAt indexPath: IndexPath) {
     cv.deselectItem(at: indexPath, animated: true)
     if indexPath.item == 0 {
-      // first cell → camera
-      presentCamera()
+      presentCamera()                                                       // tap first cell → open camera
     } else {
-      // any other cell → present multi-picker
-      presentPhotoPicker()
+      presentPhotoPicker()                                                  // tap any image cell → pick more
     }
   }
 }
@@ -110,13 +111,13 @@ extension AddViewController: UIImagePickerControllerDelegate, UINavigationContro
   func imagePickerController(_ picker: UIImagePickerController,
                              didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
     picker.dismiss(animated: true)
-    if let image = info[.originalImage] as? UIImage {
-      images.append(image)
-      collectionView.reloadData()
+    if let image = info[.originalImage] as? UIImage {                       // grab captured image
+      images.append(image)                                                  // add to data source
+      collectionView.reloadData()                                           // refresh grid
     }
   }
   func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-    picker.dismiss(animated: true)
+    picker.dismiss(animated: true)                                          // close camera on cancel
   }
 }
 
@@ -125,10 +126,10 @@ extension AddViewController: UIImagePickerControllerDelegate, UINavigationContro
 extension AddViewController: PHPickerViewControllerDelegate {
   func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
     picker.dismiss(animated: true)
-    let itemProviders = results.map(\.itemProvider)
+    let itemProviders = results.map(\.itemProvider)                          // providers for selected items
     for provider in itemProviders {
       if provider.canLoadObject(ofClass: UIImage.self) {
-        provider.loadObject(ofClass: UIImage.self) { [weak self] (obj, _) in
+        provider.loadObject(ofClass: UIImage.self) { [weak self] (obj, _) in // async load each image
           guard let self = self, let img = obj as? UIImage else { return }
           DispatchQueue.main.async {
             self.images.append(img)
@@ -148,7 +149,7 @@ private class ImageCell: UICollectionViewCell {
   
   override init(frame: CGRect) {
     super.init(frame: frame)
-    contentView.addSubview(imageView)
+    contentView.addSubview(imageView)                                       // fill cell with image view
     imageView.contentMode = .scaleAspectFill
     imageView.clipsToBounds = true
     imageView.translatesAutoresizingMaskIntoConstraints = false
@@ -158,21 +159,21 @@ private class ImageCell: UICollectionViewCell {
       imageView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
       imageView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
     ])
-    contentView.layer.cornerRadius = 8
+    contentView.layer.cornerRadius = 8                                      // subtle card styling
     contentView.layer.borderWidth = 1
     contentView.layer.borderColor = UIColor.secondarySystemFill.cgColor
   }
   
-  required init?(coder: NSCoder) { fatalError() }
+  required init?(coder: NSCoder) { fatalError() }                           // not used in storyboard
   
   func configureAsCamera() {
-    imageView.image = UIImage(systemName: "camera.fill")
+    imageView.image = UIImage(systemName: "camera.fill")                    // SF Symbol for camera
     imageView.tintColor = .label
     imageView.contentMode = .center
   }
   
   func configure(with image: UIImage) {
-    imageView.image = image
+    imageView.image = image                                                 // show chosen image
     imageView.contentMode = .scaleAspectFill
   }
 }

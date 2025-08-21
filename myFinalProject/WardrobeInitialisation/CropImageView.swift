@@ -2,19 +2,23 @@
 //  CropImageView.swift
 //  myFinalProject
 //
-//  Created by Derya Baglan on 31/07/2025.
+//  Created by Derya Baglan on 31/07/2025
+//
+//  1) Shows an image full-screen with a draggable/resizable crop rectangle over a dimmed overlay.
+//  2) Lets you resize from any corner (bounded + min size), then "Done" crops and returns the PNG/JPEG.
+//  3) Has Reset (restore default crop), Cancel (return original), and a caution banner at the top.
 //
 
 import SwiftUI
 import UIKit
 
 struct CropImageView: View {
-    let image: UIImage
-    var onComplete: (UIImage) -> Void
+    let image: UIImage                      // input image to crop
+    var onComplete: (UIImage) -> Void       // callback with final (or original on cancel)
 
-    @State private var cropRect: CGRect = .zero
-    @State private var startCropRect: CGRect = .zero
-    @GestureState private var dragOffset: CGSize = .zero
+    @State private var cropRect: CGRect = .zero      // live crop rect in view coordinates
+    @State private var startCropRect: CGRect = .zero // crop rect snapshot at gesture start
+    @GestureState private var dragOffset: CGSize = .zero // unused (kept if adding drag-to-move)
 
     // Banner state
     @State private var showBanner = true
@@ -22,7 +26,7 @@ struct CropImageView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                // Background image
+                // Background image (letterboxed to fit)
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
@@ -30,42 +34,42 @@ struct CropImageView: View {
                     .background(Color.black)
                     .clipped()
 
-                // Dim overlay + crop rectangle
+                // Dim everything except the crop rect using a path subtraction mask
                 Color.black.opacity(0.4)
                     .mask(
                         Rectangle().path(in: CGRect(origin: .zero, size: geo.size))
                             .subtracting(Rectangle().path(in: cropRect))
                     )
 
+                // Visible crop border
                 RoundedRectangle(cornerRadius: 4)
-                    .stroke(Color.red, lineWidth: 3) // thicker for clarity
+                    .stroke(Color.red, lineWidth: 3)
                     .frame(width: cropRect.width, height: cropRect.height)
                     .position(x: cropRect.midX, y: cropRect.midY)
 
-                // Draggable handles
+                // Four draggable corner handles
                 ForEach(Corner.allCases, id: \.self) { corner in
                     Circle()
                         .fill(Color.red)
-                        .frame(width: 26, height: 26) // larger handles
+                        .frame(width: 26, height: 26)
                         .shadow(radius: 1, y: 1)
                         .position(handlePosition(for: corner))
                         .gesture(
                             DragGesture(minimumDistance: 0)
                                 .onChanged { value in
-                                    if startCropRect == .zero { startCropRect = cropRect }
+                                    if startCropRect == .zero { startCropRect = cropRect } // lock baseline on first move
                                     resizeCropRect(corner: corner, translation: value.translation, in: geo.size)
                                 }
-                                .onEnded { _ in startCropRect = cropRect }
+                                .onEnded { _ in startCropRect = cropRect } // persist new baseline
                         )
                 }
 
-                // Controls
+                // Controls stack (kept below banner when visible)
                 VStack(spacing: 10) {
-                    // keep controls below the banner when it's showing
-                    Spacer(minLength: showBanner ? 58 : 0)
+                    Spacer(minLength: showBanner ? 58 : 0) // avoid overlapping the banner
 
                     HStack {
-                        Button("Cancel") { onComplete(image) }
+                        Button("Cancel") { onComplete(image) } // return original
                             .buttonStyle(.plain)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
@@ -75,7 +79,7 @@ struct CropImageView: View {
 
                         Spacer()
 
-                        Button("Reset") {
+                        Button("Reset") {                       // reset to a generous inset rect
                             cropRect = CGRect(
                                 x: 50, y: 150,
                                 width: geo.size.width - 100,
@@ -94,7 +98,7 @@ struct CropImageView: View {
 
                     Spacer()
 
-                    Button("Done") {
+                    Button("Done") {                            // crop using geometry → image pixel space
                         let final = cropUIImage(from: image, in: cropRect, container: geo.frame(in: .local))
                         onComplete(final)
                     }
@@ -108,7 +112,7 @@ struct CropImageView: View {
                     .padding(.bottom, 20)
                 }
             }
-            // Prominent warning banner pinned at the very top
+            // Prominent safety/UX banner pinned to the top
             .overlay(alignment: .top) {
                 if showBanner {
                     WarningBanner(
@@ -122,7 +126,7 @@ struct CropImageView: View {
                 }
             }
             .onAppear {
-                // Initialize crop rectangle
+                // Initial crop rectangle (inset defaults)
                 cropRect = CGRect(
                     x: 50, y: 150,
                     width: geo.size.width - 100,
@@ -133,8 +137,10 @@ struct CropImageView: View {
         }
     }
 
+    // Which handle is being dragged
     enum Corner: CaseIterable { case topLeft, topRight, bottomRight, bottomLeft }
 
+    // Convert a corner enum into its current on-screen position
     private func handlePosition(for corner: Corner) -> CGPoint {
         switch corner {
         case .topLeft:     return CGPoint(x: cropRect.minX, y: cropRect.minY)
@@ -144,6 +150,7 @@ struct CropImageView: View {
         }
     }
 
+    // Resize the crop rect from a specific corner; clamp to bounds + min size
     private func resizeCropRect(corner: Corner, translation: CGSize, in bounds: CGSize) {
         var r = startCropRect
         switch corner {
@@ -165,7 +172,7 @@ struct CropImageView: View {
             r.size.height += translation.height
         }
 
-        // Enforce min size & bounds
+        // Enforce min size & keep entirely inside the view
         r.size.width  = max(50, r.size.width)
         r.size.height = max(50, r.size.height)
         r.origin.x    = min(max(0, r.origin.x), bounds.width  - r.size.width)
@@ -173,16 +180,17 @@ struct CropImageView: View {
         cropRect = r
     }
 
+    // Convert the cropRect from view space to image pixel space and crop the CGImage
     private func cropUIImage(from uiImage: UIImage, in rect: CGRect, container: CGRect) -> UIImage {
         guard let cg = uiImage.cgImage else { return uiImage }
-        let scaleX = CGFloat(cg.width)  / container.width
-        let scaleY = CGFloat(cg.height) / container.height
+        let scaleX = CGFloat(cg.width)  / container.width   // pixels per point horizontally
+        let scaleY = CGFloat(cg.height) / container.height  // pixels per point vertically
         let cropInPixels = CGRect(
             x: (rect.origin.x - container.minX) * scaleX,
             y: (rect.origin.y - container.minY) * scaleY,
             width: rect.width  * scaleX,
             height: rect.height * scaleY
-        ).integral
+        ).integral                                         // align to whole pixels for CG
         guard let croppedCg = cg.cropping(to: cropInPixels) else { return uiImage }
         return UIImage(cgImage: croppedCg, scale: uiImage.scale, orientation: uiImage.imageOrientation)
     }
@@ -199,13 +207,10 @@ private struct WarningBanner: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .imageScale(.large)
-
+            Image(systemName: "exclamationmark.triangle.fill").imageScale(.large)
             Text(text)
                 .font(.callout.weight(.semibold))
                 .fixedSize(horizontal: false, vertical: true)
-
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .padding(.horizontal, 6)
@@ -218,7 +223,7 @@ private struct WarningBanner: View {
         .foregroundColor(.black)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.brandYellow) // high-contrast background
+                .fill(Color.brandYellow)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
                         .stroke(Color.brandOrange.opacity(pulse ? 1 : 0.5), lineWidth: 2)
@@ -228,10 +233,9 @@ private struct WarningBanner: View {
         .scaleEffect(appear ? 1 : 0.95)
         .opacity(appear ? 1 : 0)
         .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.75)) { appear = true }
-            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) { pulse = true }
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.75)) { appear = true } // entrance
+            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) { pulse = true } // subtle pulse
         }
-        // Don’t block crop gestures lower on the screen
         .accessibilityLabel("Important: Crop to clothing only. Avoid faces and minimise visible skin.")
     }
 }

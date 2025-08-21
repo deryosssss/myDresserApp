@@ -20,7 +20,6 @@ struct SignInUpView: View {
                 VStack(spacing: 36) {
                     Spacer()
                     
-                    // MyDresser logo (Spicy Rice)
                     ZStack {
                         Text("MyDresser")
                             .font(AppFont.spicyRice(size: 54))
@@ -35,29 +34,26 @@ struct SignInUpView: View {
                     .padding(.bottom, 24)
                     
                     VStack(spacing: 18) {
-                        // Sign Up Button
                         Button(action: { vm.signUpTapped() }) {
                             Text("Sign up")
                                 .foregroundColor(.black)
-                                .font(AppFont.agdasima(size: 20))
+                                .font(AppFont.agdasima(size: 26))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                                 .background(Color.white)
                                 .cornerRadius(6)
                         }
                         
-                        // Sign In Button
                         Button(action: { vm.signInTapped() }) {
                             Text("Sign in")
                                 .foregroundColor(.black)
-                                .font(AppFont.agdasima(size: 20))
+                                .font(AppFont.agdasima(size: 26))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                                 .background(Color.white)
                                 .cornerRadius(6)
                         }
                         
-                        // Social Login Buttons
                         HStack(spacing: 14) {
                             Button(action: { vm.googleTapped() }) {
                                 Image("googleIcon")

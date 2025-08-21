@@ -7,26 +7,38 @@
 
 import SwiftUI
 
+/// One page of the onboarding carousel.
+/// Renders a centered “card” with title, optional subtitle/image, and a continue CTA on the last page.
+/// The parent `OnboardingContainerView` supplies the current page index and total count.
 struct OnboardingPageView: View {
+    // Immutable content model for this page (title/subtitle/optional image).
     let content: OnboardingPageContent
+    // Used to draw the page indicator dots and to detect the last page.
     let totalPages: Int
     let currentPage: Int
 
+    // Local navigation trigger to leave onboarding.
     @State private var goToHome = false
 
+    // Fixed card size for a consistent composition across devices.
+    // (Keeps the “M” monogram positioning stable.)
     let cardWidth: CGFloat = 270
     let cardHeight: CGFloat = 340
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Spacer()
+                Spacer() // centers the card vertically a bit lower
+
                 ZStack(alignment: .top) {
-                    // Main Card
+                    // ─────────────────────────────────────────────────────────
+                    // Main white card with thin black border + soft shadow.
+                    // Contains the page title, optional subtitle, image and the final “Continue” button.
+                    // ─────────────────────────────────────────────────────────
                     VStack {
-                        Spacer().frame(height: 70) // Space for the "M"
+                        Spacer().frame(height: 70) // reserved vertical space under the “M” monogram
+
                         VStack(spacing: 18) {
-                            // Title with padding
                             Text(content.title)
                                 .font(AppFont.spicyRice(size: 24))
                                 .foregroundColor(.black)
@@ -34,8 +46,7 @@ struct OnboardingPageView: View {
                                 .padding(.horizontal, 20)
                                 .padding(.top, 2)
                                 .fixedSize(horizontal: false, vertical: true)
-                            
-                            // Subtitle with padding, if present
+
                             if !content.subtitle.isEmpty {
                                 Text(content.subtitle)
                                     .font(AppFont.spicyRice(size: 18))
@@ -45,20 +56,17 @@ struct OnboardingPageView: View {
                                     .padding(.top, 60)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
-                            // Continue Button ONLY on last page
+
                             if currentPage == totalPages - 1 {
                                 ContinueButton(
                                     title: "Continue",
                                     enabled: true,
-                                    action: {
-                                        goToHome = true
-                                    },
+                                    action: { goToHome = true },
                                     backgroundColor: Color.brandYellow
                                 )
                                 .padding(.top, 40)
                             }
                             
-                            // Image (if provided)
                             if let img = content.imageName {
                                 Image(img)
                                     .resizable()
@@ -68,7 +76,7 @@ struct OnboardingPageView: View {
                                     .shadow(radius: 1)
                                     .padding(.top, 6)
                             }
-                            
+
                             Spacer()
                         }
                         .frame(width: cardWidth, height: cardHeight, alignment: .top)
@@ -81,7 +89,10 @@ struct OnboardingPageView: View {
                     )
                     .shadow(color: .black.opacity(0.10), radius: 1, x: 0, y: 4)
                     
-                    // "M" logo, always same place/size, overlaps card
+                    // ─────────────────────────────────────────────────────────
+                    // Decorative “M” monogram layered above the card.
+                    // Shadow/blur combo gives a subtle embossed effect.
+                    // ─────────────────────────────────────────────────────────
                     HStack {
                         Spacer()
                         ZStack {
@@ -101,7 +112,9 @@ struct OnboardingPageView: View {
                     .offset(y: -40)
                 }
                 
-                // Dots indicator
+                // ─────────────────────────────────────────────────────────
+                // Page indicator dots: highlight the current page in purple.
+                // ─────────────────────────────────────────────────────────
                 HStack(spacing: 12) {
                     ForEach(0..<totalPages, id: \.self) { idx in
                         Circle()
@@ -110,9 +123,9 @@ struct OnboardingPageView: View {
                     }
                 }
                 .padding(.top, 36)
+
                 Spacer()
             }
-            // Navigation to HomeView when finished
             .navigationDestination(isPresented: $goToHome) {
                 MainTabView()
                     .navigationBarBackButtonHidden(true)

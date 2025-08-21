@@ -20,7 +20,4 @@ extension Color {
     static let brandDarkPink = Color(red: 1, green: 0.4863, blue: 0.9804)
 
     
-    
-    // Add more colours here
-    
 }

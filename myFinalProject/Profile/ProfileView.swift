@@ -112,7 +112,7 @@ struct ProfileView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 13)
                             .background(Color(.systemGray6))
-                            .clipShape(RoundedRectangle(cornerRadius: 10))     // ⬅️ rounded
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
                     .disabled(vm.isWorking)
                     .padding(.top, 20)
@@ -145,7 +145,7 @@ struct ProfileView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 13)
                                 .background(Color.red.opacity(0.18))
-                                .clipShape(RoundedRectangle(cornerRadius: 10)) // ⬅️ rounded
+                                .clipShape(RoundedRectangle(cornerRadius: 10)) 
                         }
                         .disabled(vm.isWorking)
                     }

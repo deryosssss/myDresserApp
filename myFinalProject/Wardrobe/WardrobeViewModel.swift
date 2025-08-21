@@ -2,7 +2,12 @@
 //  WardrobeViewModel.swift
 //  myFinalProject
 //
-//  Created by Derya Baglan on 05/08/2025.
+//  Created by Derya Baglan on 05/08/2025
+//
+//  1) Subscribes to wardrobe items from a data service (Firestore-backed) and exposes them to the UI.
+//  2) Handles item mutations (toggle favorite, update fields, list edits, delete) and media replace (sync/async).
+//  3) Listens to outfits globally and per-item; decodes/hydrates Outfit docs; supports favorite/tag edits (TODO persist).
+//  4) Applies filters + sorting for the list view; manages listener lifecycle cleanly.
 //
 
 import Foundation
@@ -22,27 +27,27 @@ protocol WardrobeDataService {
 
 final class WardrobeViewModel: ObservableObject {
     // MARK: - Published state
-    @Published var items: [WardrobeItem] = []
-    @Published var favoriteIDs = Set<String>()
+    @Published var items: [WardrobeItem] = []                 // live items list
+    @Published var favoriteIDs = Set<String>()                // quick favorite lookup
 
     // Per-item outfits (ItemDetailView)
-    @Published var outfitsByItem: [String: [Outfit]] = [:]
+    @Published var outfitsByItem: [String: [Outfit]] = [:]    // itemId → outfits
 
     // All outfits for Wardrobe → Outfits tab (drives usage/diversity)
-    @Published var allOutfits: [Outfit] = []
+    @Published var allOutfits: [Outfit] = []                  // global outfits feed
 
-    @Published var error: Error?
+    @Published var error: Error?                              // surface async errors
 
     // Filters (sheet → list)
-    @Published var filters: WardrobeFilters = .default
+    @Published var filters: WardrobeFilters = .default        // user-selected filters/sort
 
-    private let service: WardrobeDataService
-    private var itemsListener: ListenerRegistration?
+    private let service: WardrobeDataService                  // Firestore-backed service
+    private var itemsListener: ListenerRegistration?          // listener for items
 
     // Per-item listeners
-    private var outfitListeners: [String: ListenerRegistration] = [:]
+    private var outfitListeners: [String: ListenerRegistration] = [:] // itemId → listener
     // Global listener
-    private var allOutfitsListener: ListenerRegistration?
+    private var allOutfitsListener: ListenerRegistration?     // listener for all outfits
 
     init(service: WardrobeDataService = WardrobeFirestoreService()) {
         self.service = service
@@ -53,7 +58,7 @@ final class WardrobeViewModel: ObservableObject {
                 switch result {
                 case .success(let newItems):
                     self?.items = newItems
-                    self?.favoriteIDs = Set(newItems.filter { $0.isFavorite }.compactMap { $0.id })
+                    self?.favoriteIDs = Set(newItems.filter { $0.isFavorite }.compactMap { $0.id }) // recompute favorites
                 case .failure(let err):
                     self?.error = err
                 }
@@ -61,7 +66,7 @@ final class WardrobeViewModel: ObservableObject {
         }
 
         // All outfits
-        startAllOutfitsListener()
+        startAllOutfitsListener() // begin global outfits feed
     }
 
     deinit {
@@ -74,34 +79,34 @@ final class WardrobeViewModel: ObservableObject {
 
     func toggleFavorite(_ item: WardrobeItem) {
         guard let id = item.id, let idx = items.firstIndex(where: { $0.id == id }) else { return }
-        items[idx].isFavorite.toggle()
+        items[idx].isFavorite.toggle()                                   // optimistic UI
         let newVal = items[idx].isFavorite
         if newVal { favoriteIDs.insert(id) } else { favoriteIDs.remove(id) }
-        service.updateItem(id, data: ["isFavorite": newVal])
+        service.updateItem(id, data: ["isFavorite": newVal])             // persist flag
     }
 
     func isFavorite(_ item: WardrobeItem) -> Bool {
         if let id = item.id, let latest = items.first(where: { $0.id == id }) {
-            return latest.isFavorite
+            return latest.isFavorite                                      // read from source of truth
         }
         return item.isFavorite
     }
 
     func delete(_ item: WardrobeItem) {
         guard let id = item.id else { return }
-        items.removeAll { $0.id == id }
+        items.removeAll { $0.id == id }                                   // optimistic removal
         favoriteIDs.remove(id)
-        stopOutfitsListener(for: item)
+        stopOutfitsListener(for: item)                                     // cleanup listener
         outfitsByItem[id] = nil
-        service.deleteItem(id)
+        service.deleteItem(id)                                             // best-effort delete
     }
 
     func updateItem(_ item: WardrobeItem, transform: (inout WardrobeItem) -> Void) {
         guard let id = item.id, let idx = items.firstIndex(where: { $0.id == id }) else { return }
         var copy = items[idx]
-        transform(&copy)
-        items[idx] = copy
-        service.updateItem(id, data: copy.dictionary)
+        transform(&copy)                                                   // mutate copy
+        items[idx] = copy                                                  // update UI
+        service.updateItem(id, data: copy.dictionary)                      // persist partial update
     }
 
     func modifyList<Value: Equatable>(
@@ -115,7 +120,7 @@ final class WardrobeViewModel: ObservableObject {
         if let v = add, !copy[keyPath: keyPath].contains(v) { copy[keyPath: keyPath].append(v) }
         if let v = remove, let pos = copy[keyPath: keyPath].firstIndex(of: v) { copy[keyPath: keyPath].remove(at: pos) }
         items[idx] = copy
-        service.updateItem(id, data: copy.dictionary)
+        service.updateItem(id, data: copy.dictionary)                      // persist list change
     }
 
     // MARK: - Media
@@ -123,14 +128,14 @@ final class WardrobeViewModel: ObservableObject {
     func replacePhoto(_ item: WardrobeItem, with data: Data, contentType: String = "image/jpeg", fileExtension: String = "jpg") {
         guard let id = item.id else { return }
         let storage = Storage.storage()
-        let path = "users/\(item.userId)/items/\(id)/primary.\(fileExtension)"
+        let path = "users/\(item.userId)/items/\(id)/primary.\(fileExtension)" // canonical path per item
         let ref  = storage.reference(withPath: path)
 
         let meta = StorageMetadata()
         meta.contentType = contentType
 
         if let oldPath = item.imagePath, oldPath != path {
-            storage.reference(withPath: oldPath).delete(completion: nil)
+            storage.reference(withPath: oldPath).delete(completion: nil)       // best-effort cleanup
         }
 
         ref.putData(data, metadata: meta) { [weak self] _, error in
@@ -151,7 +156,7 @@ final class WardrobeViewModel: ObservableObject {
                         self.items[idx].imagePath = path
                     }
                 }
-                self.service.updateItem(id, data: ["imageURL": url.absoluteString, "imagePath": path])
+                self.service.updateItem(id, data: ["imageURL": url.absoluteString, "imagePath": path]) // persist fields
             }
         }
     }
@@ -166,11 +171,11 @@ final class WardrobeViewModel: ObservableObject {
         meta.contentType = contentType
 
         if let oldPath = item.imagePath, oldPath != path {
-            try? await storage.reference(withPath: oldPath).delete()
+            try? await storage.reference(withPath: oldPath).delete()          // ignore if missing
         }
 
-        _ = try await ref.putDataAsync(data, metadata: meta)
-        let url = try await ref.downloadURL()
+        _ = try await ref.putDataAsync(data, metadata: meta)                  // upload bytes
+        let url = try await ref.downloadURL()                                 // fetch CDN URL
 
         await MainActor.run {
             if let idx = self.items.firstIndex(where: { $0.id == id }) {
@@ -178,14 +183,14 @@ final class WardrobeViewModel: ObservableObject {
                 self.items[idx].imagePath = path
             }
         }
-        self.service.updateItem(id, data: ["imageURL": url.absoluteString, "imagePath": path])
+        self.service.updateItem(id, data: ["imageURL": url.absoluteString, "imagePath": path]) // persist fields
     }
 
     // MARK: - Outfits (per-item for ItemDetailView)
 
     func setOutfits(_ outfits: [Outfit], for item: WardrobeItem) {
         guard let id = item.id else { return }
-        outfitsByItem[id] = outfits
+        outfitsByItem[id] = outfits                                         // inject preloaded outfits
     }
 
     func outfits(for item: WardrobeItem) -> [Outfit] {
@@ -205,6 +210,7 @@ final class WardrobeViewModel: ObservableObject {
         if let idx = allOutfits.firstIndex(where: { $0.id == oid }) {
             allOutfits[idx].isFavorite.toggle()
         }
+        // TODO: persist outfit favorite flag to Firestore
     }
 
     func delete(_ outfit: Outfit) {
@@ -217,7 +223,7 @@ final class WardrobeViewModel: ObservableObject {
             }
         }
         allOutfits.removeAll { $0.id == oid }
-        // TODO: delete in Firestore
+        // TODO: delete outfit doc in Firestore
     }
 
     func removeTag(_ outfit: Outfit, tag: String) {
@@ -232,7 +238,7 @@ final class WardrobeViewModel: ObservableObject {
         if let idx = allOutfits.firstIndex(where: { $0.id == oid }) {
             allOutfits[idx].tags.removeAll { $0 == tag }
         }
-        // TODO: persist to Firestore
+        // TODO: persist tag removal to Firestore
     }
 
     func updateTags(_ outfit: Outfit, newTags: [String]) {
@@ -247,7 +253,7 @@ final class WardrobeViewModel: ObservableObject {
         if let idx = allOutfits.firstIndex(where: { $0.id == oid }) {
             allOutfits[idx].tags = newTags
         }
-        // TODO: persist to Firestore
+        // TODO: persist tag update to Firestore
     }
 
     // MARK: - Outfits Firestore listeners (hydrated for itemIDs/createdAt)
@@ -282,7 +288,7 @@ final class WardrobeViewModel: ObservableObject {
     /// Listener for outfits that include a specific item (ItemDetailView)
     func startOutfitsListener(for item: WardrobeItem) {
         guard let itemId = item.id else { return }
-        if outfitListeners[itemId] != nil { return }
+        if outfitListeners[itemId] != nil { return }                          // avoid duplicates
 
         let query = Firestore.firestore()
             .collection("users")
@@ -380,14 +386,14 @@ private extension WardrobeViewModel {
 extension WardrobeViewModel {
     func matchesFilters(_ item: WardrobeItem) -> Bool {
         let f = filters
-        if f.category != "All", item.category.ci != f.category.ci { return false }
+        if f.category != "All", item.category.ci != f.category.ci { return false }                     // category
         if !f.colours.isEmpty {
             let itemColours = Set(item.colours.map(\.ci))
-            if itemColours.isDisjoint(with: f.colours.map(\.ci)) { return false }
+            if itemColours.isDisjoint(with: f.colours.map(\.ci)) { return false }                      // colours
         }
         if !f.tags.isEmpty {
             let itemTags = Set(item.customTags.map(\.ci))
-            if itemTags.isDisjoint(with: f.tags.map(\.ci)) { return false }
+            if itemTags.isDisjoint(with: f.tags.map(\.ci)) { return false }                            // tags
         }
         if f.dressCode != "Any", item.dressCode.ci != f.dressCode.ci { return false }
         if f.season != "All", item.season.ci != f.season.ci { return false }
@@ -399,7 +405,7 @@ extension WardrobeViewModel {
     func sort(_ items: [WardrobeItem]) -> [WardrobeItem] {
         switch filters.sortBy {
         case "Oldest":
-            return items.sorted { ($0.addedAt ?? .distantPast) < ($1.addedAt ?? .distantPast) }
+            return items.sorted { ($0.addedAt ?? .distantPast) < ($1.addedAt ?? .distantPast) }        // oldest first
         case "A → Z":
             return items.sorted {
                 ($0.category + " " + $0.subcategory)
@@ -411,7 +417,7 @@ extension WardrobeViewModel {
                     .localizedCaseInsensitiveCompare($1.category + " " + $1.subcategory) == .orderedDescending
             }
         default:
-            return items.sorted { ($0.addedAt ?? .distantPast) > ($1.addedAt ?? .distantPast) }
+            return items.sorted { ($0.addedAt ?? .distantPast) > ($1.addedAt ?? .distantPast) }        // newest first
         }
     }
 }
