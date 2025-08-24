@@ -3,13 +3,14 @@
 //  myFinalProject
 //
 //  Created by Derya Baglan on 31/07/2025.
+//  Updated: 22/08/2025 – allow external initial tab (Items/Outfits).
 //
 
 import SwiftUI
 
 struct WardrobeView: View {
     @StateObject private var viewModel: WardrobeViewModel
-    @State private var selectedTab: Tab = .items
+    @State private var selectedTab: Tab
     @State private var selectedCategory: Category = .all
     @State private var searchText: String = ""
     @State private var showOnlyFavorites: Bool = false
@@ -23,8 +24,10 @@ struct WardrobeView: View {
         GridItem(.flexible(), spacing: 16)
     ]
 
-    init(viewModel: WardrobeViewModel = WardrobeViewModel()) {
+    /// NEW: choose starting tab from the caller (defaults to .items).
+    init(viewModel: WardrobeViewModel = WardrobeViewModel(), initialTab: Tab = .items) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        _selectedTab = State(initialValue: initialTab)
     }
 
     var body: some View {
@@ -99,7 +102,7 @@ struct WardrobeView: View {
         }
     }
 
-    // MARK: — Search + Favorites + Filter + Sort (shared UI)
+    // MARK: — Search + Favorites + Filter + Sort
     private var searchFilters: some View {
         HStack(spacing: 16) {
             WardrobeSearchBar(
@@ -186,7 +189,7 @@ struct WardrobeView: View {
                     OutfitDetailView(outfit: row.outfit)
                         .environmentObject(viewModel)
                 } label: {
-                    OutfitCollageCard(outfit: row.outfit) // shared component file
+                    OutfitCollageCard(outfit: row.outfit)
                 }
                 .buttonStyle(.plain)
             }
@@ -194,7 +197,6 @@ struct WardrobeView: View {
         .padding(16)
     }
 
-    /// favorites → search → tag filters → sort
     private var filteredOutfits: [Outfit] {
         var list = viewModel.allOutfits
 
@@ -273,4 +275,3 @@ extension WardrobeView {
         }
     }
 }
-

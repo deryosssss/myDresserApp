@@ -29,10 +29,10 @@ struct HomeBadgesSection: View {
         }) {
             HStack(spacing: 12) {
                 BadgeView(title: "Starter",    system: "tshirt",
-                          achieved: totalItems >= 1)
+                          achieved: totalItems >= 10)
 
                 BadgeView(title: "Builder",    system: "tshirt.fill",
-                          achieved: totalItems >= 15)
+                          achieved: totalItems >= 25)
 
                 BadgeView(title: "Outfit Pro", system: "sparkles",
                           achieved: outfitsThisMonth >= 12)

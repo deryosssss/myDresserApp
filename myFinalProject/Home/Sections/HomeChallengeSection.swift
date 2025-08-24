@@ -19,7 +19,7 @@ struct HomeChallengeSection: View {
     var onAccept: () -> Void
 
     var body: some View {
-        HomeSectionCard(title: "Spin a challenge") {
+        HomeSectionCard(title: "Suprise me!") {
             VStack(spacing: 12) {
                 Text(text)
                     .font(.callout)
@@ -53,7 +53,7 @@ struct HomeChallengeSection: View {
                     Button(action: onAccept) {
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.seal.fill")
-                            Text("Challenge accepted · Create outfit")
+                            Text("Let's Create outfit")
                                 .font(AppFont.spicyRice(size: 18))
                         }
                         .padding(.vertical, 12)

@@ -19,7 +19,7 @@ enum ItemKindInference {
 
         if has(["dress","gown","jumpsuit","overall"]) { return .dress }
         if has(["jacket","coat","blazer","outerwear","parka"]) { return .outerwear }
-        if has(["pant","pants","trouser","trousers","jeans","skirt","short","leggings"]) { return .bottom }
+        if has(["bottom", "pants", "jeans", "skirt", "shorts", "trouser", "trousers"]) { return .bottom }
         if has(["shoe","shoes","sneaker","trainer","boot","boots","sandal","loafer","heel","footwear"]) { return .shoes }
         if has(["bag","handbag","backpack","tote","crossbody","purse","wallet"]) { return .bag }
         if has(["belt","scarf","hat","cap","jewellery","jewelry","glove","accessory"]) { return .accessory }

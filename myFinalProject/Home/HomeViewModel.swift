@@ -62,7 +62,7 @@ final class HomeViewModel: ObservableObject {
     }
 
     // Challenge (UX nudges)
-    @Published private(set) var challengeText: String = "Tap spin to get today’s style challenge!"
+    @Published private(set) var challengeText: String = "Tap spin to get today’s suprise!"
     @Published private(set) var challengeImages: [String] = []         // preview images (e.g., focus item)
     @Published private(set) var challengeFocusItem: WardrobeItem? = nil // concrete item challenge, if any
     @Published var spinning = false                                     // drives the spin animation

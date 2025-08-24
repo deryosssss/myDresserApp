@@ -24,13 +24,13 @@ struct BadgeDefinitionsSheet: View {
                     // `achieved` is computed here so the row stays dumb/presentational.
                     BadgeRow(symbol: "tshirt",
                              title: "Starter",
-                             desc: "Add your first item to the wardrobe.",
-                             achieved: itemsCount >= 1)
+                             desc: "Add your first 10 items to the wardrobe.",
+                             achieved: itemsCount >= 10)
 
                     BadgeRow(symbol: "tshirt.fill",
                              title: "Builder",
-                             desc: "Reach 15 items in your wardrobe.",
-                             achieved: itemsCount >= 15)
+                             desc: "Reach 25 items in your wardrobe.",
+                             achieved: itemsCount >= 25)
 
                     // Show numeric progress to guide the user.
                     BadgeRow(symbol: "sparkles",
@@ -81,7 +81,7 @@ struct BadgeRow: View {
             // Icon with subtle “earned” background tint
             Image(systemName: symbol)
                 .frame(width: 30, height: 30)
-                .background(achieved ? Color.brandGreen.opacity(0.35) : Color(.systemGray5))
+                .background(achieved ? Color.brandGreen : Color(.systemGray5))
                 .clipShape(RoundedRectangle(cornerRadius: 6))
 
             VStack(alignment: .leading, spacing: 4) {

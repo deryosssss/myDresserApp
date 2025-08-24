@@ -139,7 +139,9 @@ struct ManualSuggestionStore {
         // Core buckets (expandable as your taxonomy grows).
         let isDressLike  = containsAny(["dress", "gown", "jumpsuit", "overall"], in: cat, sub)
         let isTopLike    = containsAny(["top", "shirt", "blouse", "t-shirt", "tee", "sweater", "hoodie", "cardigan", "tank"], in: cat, sub)
-        let isBottomLike = containsAny(["bottom", "bottoms", "pants","pant", "jeans","jean", "skirt", "shorts", "trouser", "trousers", "leggings", "trackpants"])
+        let isBottomLike = containsAny(
+            ["bottom","pants","jeans","skirt","shorts","trouser","trousers"],
+            in: cat, sub)
         let isShoeLike   = containsAny(["shoe", "shoes", "sneaker", "trainer", "boot", "boots", "sandal", "sandals", "loafer", "loafers", "footwear"], in: cat, sub)
         let isOuterWear  = containsAny(["jacket", "coat", "blazer", "outerwear", "parka"], in: cat, sub)
         let isBagLike    = containsAny(["bag", "handbag", "backpack", "tote", "crossbody", "purse", "wallet"], in: cat, sub)

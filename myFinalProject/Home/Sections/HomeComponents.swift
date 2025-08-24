@@ -128,7 +128,7 @@ struct BadgeView: View {
             Image(systemName: system)
                 .font(.title2)
                 .frame(width: 44, height: 44)
-                .background(achieved ? Color.brandGreen.opacity(0.35) : Color(.systemGray5))
+                .background(achieved ? Color.brandGreen : Color(.systemGray5))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             Text(title)
                 .font(.caption)

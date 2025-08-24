@@ -3,41 +3,36 @@
 //  myDresser
 //
 //  Created by Derya Baglan on 30/07/2025.
+//  Updated: 22/08/2025 – CO₂ assumptions store + interactive sheet.
 //
 
 import SwiftUI
 import FirebaseAuth
 
-/// Home dashboard composed of small, testable subviews:
-/// - Pulls wardrobe + profile data from shared VMs
-/// - Shows greeting, CO₂ card, recent items, diversity, usage, challenge, badges
-/// - Hosts "Create outfits" CTA and two modal flows (manual / AI)
 struct HomeView: View {
     // MARK: Data sources
-    /// Shared wardrobe state injected at app root (single source of truth for items/outfits).
     @EnvironmentObject private var wardrobeVM: WardrobeViewModel
-    /// Local profile image/name loader; StateObject so it lives for the screen lifetime.
     @StateObject private var profileVM = ProfileViewModel()
 
     // MARK: Screen state and derived metrics
-    /// Presentation logic + derived KPIs (recent items, usage %, streaks, etc).
     @StateObject private var vm = HomeViewModel()
 
-    // MARK: Sheet state
-    /// Modal flags + payloads for manual/AI flows. Kept local to avoid polluting the VM.
+    // MARK: CO₂ model (user-tweakable)
+    @StateObject private var co2 = CO2SettingsStore()
+    @State private var showCO2Settings = false
+    @State private var showCO2Details = false
+
+    // MARK: Other sheets
     @State private var showManualSheet = false
     @State private var showAISheet = false
-    @State private var manualStartPinned: WardrobeItem? = nil
-    @State private var aiInitialPrompt: String? = nil
+    @State private var showWardrobeSheet = false
+    @State private var wardrobeInitialTab: WardrobeView.Tab = .items
 
-    // MARK: Info popover state
-    /// Small, ephemeral booleans for contextual help—view-only state.
-    @State private var showStreakInfo = false
+    // MARK: Info popovers
     @State private var showDiversityInfo = false
     @State private var showBadgesInfo = false
-    @State private var showCO2Info = false
 
-    // MARK: Layout tokens (centralized spacing/sizing for visual consistency)
+    // MARK: Layout tokens
     enum UX {
         static let sectionGap: CGFloat = 16
         static let cardCorner: CGFloat = 12
@@ -50,37 +45,48 @@ struct HomeView: View {
             ScrollView {
                 VStack(spacing: UX.sectionGap) {
 
-                    // MARK: Header (profile + streak)
+                    // Header
                     HomeGreetingHeader(
                         displayName: displayName,
-                        monthlyHeadline: vm.monthlyHeadline,
-                        streak: vm.streak7,
-                        profileImage: profileVM.profileImage,
-                        showStreakInfo: $showStreakInfo
+                        profileImage: profileVM.profileImage
                     )
 
-                    // MARK: CO₂ saved card (with info popover)
+                    // Overview
+                    HomeOverviewCard(
+                        totalItems: vm.totalItems,
+                        totalOutfits: wardrobeVM.allOutfits.count,
+                        onTapItems: {
+                            wardrobeInitialTab = .items
+                            showWardrobeSheet = true
+                        },
+                        onTapOutfits: {
+                            wardrobeInitialTab = .outfits
+                            showWardrobeSheet = true
+                        }
+                    )
+
+                    // CO₂ summary (interactive assumptions)
                     HomeCO2Card(
-                        kilograms: vm.co2SavedThisMonth,
-                        showInfo: $showCO2Info
+                        outfitsThisMonth: vm.outfitsThisMonth,
+                        settings: co2,
+                        showSettings: $showCO2Settings,
+                        onOpenDetails: { showCO2Details = true }
                     )
 
-                    // MARK: New items carousel
+                    // New items
                     HomeSectionCard(title: "New Items!") {
                         if vm.recentItems.isEmpty {
                             HomeEmptyRow(text: "No items yet")
                         } else {
-                            // Horizontal scroller with tappable item tiles → details.
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 12) {
                                     ForEach(vm.recentItems, id: \.id) { item in
                                         NavigationLink {
-                                            // Navigate to item details; pass shared VM for actions.
                                             ItemDetailView(item: item, wardrobeVM: wardrobeVM, onDelete: { })
                                         } label: {
                                             ItemTile(url: item.imageURL)
                                         }
-                                        .buttonStyle(.plain) // avoids tinted link styling
+                                        .buttonStyle(.plain)
                                     }
                                 }
                                 .padding(.horizontal, 2)
@@ -89,7 +95,7 @@ struct HomeView: View {
                         }
                     }
 
-                    // MARK: Style diversity (progress + info)
+                    // Diversity
                     HomeDiversitySection(
                         windowLabel: vm.window.rawValue,
                         score: vm.diversityScore,
@@ -97,7 +103,7 @@ struct HomeView: View {
                         showInfo: $showDiversityInfo
                     )
 
-                    // MARK: Usage (windowed stats + progress bar + unused count)
+                    // Usage
                     HomeUsageSection(
                         window: $vm.window,
                         usedCount: vm.usedItemCount,
@@ -106,7 +112,7 @@ struct HomeView: View {
                         unused90Count: vm.unused90Count
                     )
 
-                    // MARK: Challenge spinner (fun CTA with optional accept → manual creator)
+                    // Challenge
                     HomeChallengeSection(
                         text: vm.challengeText,
                         spinning: vm.spinning,
@@ -114,7 +120,6 @@ struct HomeView: View {
                         hasFocusItem: vm.challengeFocusItem != nil,
                         onSpin: { vm.spinChallenge(from: wardrobeVM) },
                         onAccept: {
-                            // If a focus item was picked, pre-pin it in the manual flow.
                             if let focus = vm.challengeFocusItem {
                                 manualStartPinned = focus
                                 showManualSheet = true
@@ -122,18 +127,17 @@ struct HomeView: View {
                         }
                     )
 
-                    // MARK: Badges (with definitions sheet)
+                    // Badges
                     HomeBadgesSection(
                         totalItems: vm.totalItems,
                         outfitsThisMonth: vm.outfitsThisMonth,
-                        co2ThisMonth: vm.co2SavedThisMonth,
+                        co2ThisMonth: Double(vm.outfitsThisMonth) * co2.estimatedKgPerOutfit,
                         streak7: vm.streak7,
                         showInfo: $showBadgesInfo
                     )
 
-                    // MARK: Bottom CTA (AI stylist)
+                    // CTA
                     Button {
-                        // Ask the VM for a context-aware prompt, then open the AI sheet.
                         aiInitialPrompt = vm.aiPrompt()
                         showAISheet = true
                     } label: {
@@ -154,36 +158,37 @@ struct HomeView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
 
-            // MARK: Data refresh hooks
-            // Pull fresh outfits feed when user pulls to refresh.
+            // Data hooks
             .refreshable { wardrobeVM.startAllOutfitsListener() }
-            // Also start listener on first load for live updates.
             .task { wardrobeVM.startAllOutfitsListener() }
 
-            // MARK: Modal flows
+            // Sheets
             .sheet(isPresented: $showManualSheet) {
-                // Manual creator; optionally seeds with a pinned item from the challenge.
                 ManualCreateSheet(userId: authUID, startPinned: manualStartPinned)
             }
             .sheet(isPresented: $showAISheet) {
-                // AI stylist; seeded with a VM-built prompt for better results.
                 AIStylistSheet(userId: authUID, initialPrompt: aiInitialPrompt)
             }
+            .sheet(isPresented: $showCO2Details) {
+                CO2InsightsView(outfits: wardrobeVM.allOutfits, factor: co2.estimatedKgPerOutfit)
+            }
+            .sheet(isPresented: $showCO2Settings) {
+                CO2AssumptionsSheet(settings: co2)
+            }
+            .sheet(isPresented: $showWardrobeSheet) {
+                WardrobeView(viewModel: wardrobeVM, initialTab: wardrobeInitialTab)
+            }
         }
-        // MARK: Reactive data sync
-        // Recompute derived UI whenever upstream data or the selected window changes.
-        .onAppear { vm.refresh(from: wardrobeVM) }                       // initial populate
-        .onReceive(wardrobeVM.$items) { _ in vm.refresh(from: wardrobeVM) }      // items changed
-        .onReceive(wardrobeVM.$allOutfits) { _ in vm.refresh(from: wardrobeVM) } // outfits changed
-        .onChange(of: vm.window) { _ in vm.onWindowChanged() }                    // window picker
+        .onAppear { vm.refresh(from: wardrobeVM) }
+        .onReceive(wardrobeVM.$items) { _ in vm.refresh(from: wardrobeVM) }
+        .onReceive(wardrobeVM.$allOutfits) { _ in vm.refresh(from: wardrobeVM) }
+        .onChange(of: vm.window) { _ in vm.onWindowChanged() }
     }
 
-    // MARK: - Local helpers
-
-    /// Defensive fallback in case Auth isn't ready yet.
+    // MARK: Local
+    @State private var manualStartPinned: WardrobeItem? = nil
+    @State private var aiInitialPrompt: String? = nil
     private var authUID: String { Auth.auth().currentUser?.uid ?? "unknown" }
-
-    /// Prefer profile username when present; keeps the header friendly when it's blank.
     private var displayName: String {
         let n = profileVM.username.trimmingCharacters(in: .whitespacesAndNewlines)
         return n.isEmpty ? "Username" : n
