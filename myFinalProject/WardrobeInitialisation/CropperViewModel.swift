@@ -1,6 +1,5 @@
-//
-//  CropperViewModel.swift
-//  myFinalProject
+// CropperViewModel.swift
+// myFinalProject
 //
 //  Created by Derya Baglan on 31/07/2025
 //

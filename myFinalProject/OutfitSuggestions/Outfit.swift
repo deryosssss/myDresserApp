@@ -27,7 +27,7 @@ struct Outfit: Identifiable, Codable {
     @ServerTimestamp var lastWorn:  Date?
     var wearCount:   Int
     var isFavorite:  Bool
-    var source:      String // "manual" or "ai"
+    var source:      String 
 
     // Coding keys match the intended Firestore field names.
     enum CodingKeys: String, CodingKey {

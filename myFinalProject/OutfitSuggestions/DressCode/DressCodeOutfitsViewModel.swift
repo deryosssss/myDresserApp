@@ -12,6 +12,10 @@
 //  combinations (cards). Users can skip a card to get a new variation, or save a
 //  chosen outfit back to Firestore.
 //
+//  Change (2025-08-22):
+//  - Dress-code filtering is now *strict*. We canonicalise the stored string and
+//    require equality with the selected option. This prevents "Smart Casual"
+//    items from leaking into "Casual" results.
 
 import Foundation
 import SwiftUI
@@ -54,9 +58,9 @@ struct DCOutfitCandidate: Identifiable, Equatable {
 @MainActor // Ensure all @Published mutations happen on the main thread (UI safety).
 final class DressCodeOutfitsViewModel: ObservableObject {
     // UI state
-    @Published var cards: [DCOutfitCandidate] = []  // current deck of suggestions
-    @Published var isLoading = false               // spinner flag
-    @Published var errorMessage: String? = nil     // alert text
+    @Published var cards: [DCOutfitCandidate] = []
+    @Published var isLoading = false
+    @Published var errorMessage: String? = nil
 
     // Inputs
     let userId: String
@@ -76,12 +80,12 @@ final class DressCodeOutfitsViewModel: ObservableObject {
     /// Loads wardrobe items filtered by dress code, then generates `count` random cards.
     /// Uses async/await so callers can `Task { await ... }` without blocking the UI.
     func loadInitial(count: Int = 4) async {
-        guard !isLoading else { return } // Drop concurrent loads to avoid churn.
+        guard !isLoading else { return }
         isLoading = true
-        defer { isLoading = false }      // Always stop spinner, success or failure.
+        defer { isLoading = false }
 
         do {
-            try await loadBuckets()     // fetch & classify
+            try await loadBuckets()     
             cards.removeAll()
 
             // Generate several different combos. We try `count` times but only append
@@ -134,10 +138,9 @@ final class DressCodeOutfitsViewModel: ObservableObject {
                 "occasion": occasion ?? "",
                 "wearCount": 0,
                 "isFavorite": isFavorite,
-                "source": "dresscode",                 // provenance tag → useful for analytics/filters
+                "source": "dresscode",
                 "dressCode": dressCode.rawValue,
                 "createdAt": FieldValue.serverTimestamp(),
-                // If no explicit date, also set to server time for chronological sorting.
                 "date": date != nil ? Timestamp(date: date!) : FieldValue.serverTimestamp()
             ]
 
@@ -157,7 +160,7 @@ final class DressCodeOutfitsViewModel: ObservableObject {
 
     // MARK: - Buckets
 
-    /// Fetches up to 1000 recent wardrobe items, filters by dress code,
+    /// Fetches up to 1000 recent wardrobe items, filters by dress code (STRICT),
     /// and strictly classifies them into LayerKind buckets.
     /// Splitting "load -> filter -> classify" makes this easy to unit test.
     private func loadBuckets() async throws {
@@ -169,14 +172,16 @@ final class DressCodeOutfitsViewModel: ObservableObject {
                                 .limit(to: 1000)
                                 .getDocuments()
 
-        // Dress-code filter (case-insensitive "contains"). Token comes from enum helper.
-        let token = dressCode.token
+        // Canonical token from UI selection (e.g., "casual", "smart casual", "smart")
+        let wanted = dressCode.token
+
+        // Map → Strictly filter by canonical dress code → classify.
         let all: [WardrobeItem] = snap.documents
             // Local mapper keeps this VM independent from other stores and simplifies tests.
             .map { doc in ManualSuggestionStoreMap.mapItem(doc.data(), id: doc.documentID) }
             .filter { item in
-                let dc = item.dressCode.lowercased()
-                return token.isEmpty || dc.contains(token)
+                let norm = canonicalDressCode(item.dressCode)
+                return wanted.isEmpty || norm == wanted
             }
 
         // Strictly classify into kinds using matcher (mutually exclusive families).
@@ -189,6 +194,28 @@ final class DressCodeOutfitsViewModel: ObservableObject {
             }
         }
         byKind = res
+    }
+
+    /// Converts any free-text dress code into one of our canonical buckets:
+    /// "smart casual", "smart", "casual" (lowercased).
+    /// Order matters: we check "smart casual" first so it does NOT fall back to "casual".
+    private func canonicalDressCode(_ raw: String) -> String {
+        let s = normalized(raw)
+        if s.contains("smart casual") { return "smart casual" }
+        if s.contains("smart")        { return "smart" }
+        if s.contains("casual")       { return "casual" }
+        return s // unknown values pass through (won't match any known token)
+    }
+
+    /// Lowercases, removes diacritics/punctuation, collapses whitespace and hyphens.
+    private func normalized(_ str: String) -> String {
+        let base = str.folding(options: .diacriticInsensitive, locale: .current)
+            .lowercased()
+            .replacingOccurrences(of: "[-_]", with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "[^a-z\\s]", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return base
     }
 
     // MARK: - Build lots of variations

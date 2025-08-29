@@ -29,7 +29,7 @@ struct WeatherWearResponse: Decodable {
 final class WeatherWearClient {
     /// Replace with your real WeatherWear base URL if different.
     private let base = URL(string: "https://weatherwear.fly.dev")!
-    var authToken: String? = nil         // optional bearer token (if the API requires auth)
+    var authToken: String? = nil
     
     /// GET /outfit-suggestions?latitude=...&longitude=...
     /// Returns garments suited for current weather at the provided coords.

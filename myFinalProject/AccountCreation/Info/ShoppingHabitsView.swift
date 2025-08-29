@@ -11,6 +11,7 @@ import SwiftUI
 /// Collects two self-reported signals:
 /// (1) shopping frequency,
 /// (2) items bought in last 3 months.
+/// This is later planned to be integrated with the carbon footprint saved calcilations
 ///
 /// The View stays dumb: renders UI, binds to @Published state on the ViewModel, and calls a single intent (`saveHabits`).
 /// On success, it navigates to onboarding via a boolean the VM toggles.
@@ -22,7 +23,6 @@ struct ShoppingHabitsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Brand backdrop sets the page tone
                 Color.brandYellow.ignoresSafeArea()
 
                 VStack(alignment: .leading, spacing: 24) {
@@ -128,7 +128,7 @@ struct ShoppingHabitsView: View {
                     Spacer()
                 }
             }
-            // Navigation is driven by the VM (decouples flow from the View).
+            // Navigation is driven by the VM .
             .navigationDestination(isPresented: $vm.goToOnboarding) {
                 OnboardingContainerView()
                     .navigationBarBackButtonHidden(true)

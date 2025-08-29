@@ -5,8 +5,8 @@ import SwiftUI
 /// - Let the user add a profile photo (optional).
 /// - Collect basic identity fields (first, last, username), DOB, and gender presentation.
 /// - Validate locally, save via ViewModel, then navigate to ShoppingHabitsView on success.
+
 struct ProfileSetupView: View {
-    // View-owning stateful VM (lifecycle tied to this view instance).
     @StateObject private var vm = ProfileSetupViewModel()
 
     var body: some View {
@@ -22,16 +22,13 @@ struct ProfileSetupView: View {
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity, alignment: .center)
 
-                    // MARK: Profile picture picker
-                    // Rationale:
-                    // - Shows either the chosen image or a placeholder avatar.
-                    // - Small "+" button opens a UIKit picker sheet (see ImagePicker wrapper).
+                    // Profile picture picker
                     ZStack(alignment: .bottomTrailing) {
                         Group {
                             if let image = vm.profileImage {
                                 Image(uiImage: image)
                                     .resizable()
-                                    .clipShape(Circle()) // Round avatar
+                                    .clipShape(Circle())
                             } else {
                                 Image(systemName: "person.crop.circle")
                                     .resizable()
@@ -42,7 +39,6 @@ struct ProfileSetupView: View {
                         .background(Color.white)
                         .clipShape(Circle())
 
-                        // Launch picker
                         Button(action: { vm.showImagePicker = true }) {
                             Image(systemName: "plus.circle.fill")
                                 .foregroundColor(.pink)
@@ -52,15 +48,9 @@ struct ProfileSetupView: View {
                         }
                     }
                     .padding(.bottom, 10)
-                    // Sheet uses our UIKit bridge to get a UIImage back into SwiftUI.
-                    .sheet(isPresented: $vm.showImagePicker) {
-                        ImagePicker(image: $vm.profileImage)
-                    }
+                    .sheet(isPresented: $vm.showImagePicker) { ImagePicker(image: $vm.profileImage) }
 
-                    // MARK: Text inputs & pickers
-                    // Design:
-                    // - Use a shared text-field style for visual consistency.
-                    // - DOB & Gender use pickers to keep values normalized.
+                    // Text inputs & pickers
                     VStack(spacing: 14) {
                         TextField("First name *", text: $vm.firstName)
                             .textFieldStyle(ProfileTextFieldStyle())
@@ -71,18 +61,13 @@ struct ProfileSetupView: View {
                         TextField("User name *", text: $vm.userName)
                             .textFieldStyle(ProfileTextFieldStyle())
 
-                        // DOB: button opens a wheel-style date picker in a sheet.
                         Button(action: { vm.showDatePicker = true }) {
                             HStack {
-                                Text("Date of Birth *")
-                                    .foregroundColor(.gray)
+                                Text("Date of Birth *").foregroundColor(.gray)
                                 Spacer()
-                                // Shows formatted date or a gray placeholder when unchanged.
                                 Text(vm.dobString)
                                     .foregroundColor(vm.dob == Date() ? .gray : .black)
-                                Image(systemName: "calendar")
-                                    .foregroundColor(.gray)
-                                    .padding(.leading, 2)
+                                Image(systemName: "calendar").foregroundColor(.gray).padding(.leading, 2)
                             }
                             .padding(13)
                             .background(Color.white)
@@ -92,15 +77,12 @@ struct ProfileSetupView: View {
                         .disabled(vm.isSaving)
                         .sheet(isPresented: $vm.showDatePicker) {
                             VStack {
-                                // Restrict to past dates (no future DOBs).
-                                DatePicker(
-                                    "Select your date of birth",
-                                    selection: $vm.dob,
-                                    in: ...Date(),
-                                    displayedComponents: .date
-                                )
-                                .datePickerStyle(.wheel)   // Mobile-friendly scroller
-                                .labelsHidden()
+                                DatePicker("Select your date of birth",
+                                           selection: $vm.dob,
+                                           in: ...Date(),
+                                           displayedComponents: .date)
+                                    .datePickerStyle(.wheel)
+                                    .labelsHidden()
                                 Button("Done") { vm.showDatePicker = false }
                                     .padding(.top, 8)
                                     .font(AppFont.agdasima(size: 22))
@@ -109,14 +91,12 @@ struct ProfileSetupView: View {
                             .background(Color.brandYellow)
                         }
 
-                        // Gender presentation: action sheet of curated options.
                         Button(action: { vm.showGenderPicker = true }) {
                             HStack {
                                 Text(vm.genderPresentation.isEmpty ? "Gender Presentation" : vm.genderPresentation)
                                     .foregroundColor(vm.genderPresentation.isEmpty ? .gray : .black)
                                 Spacer()
-                                Image(systemName: "chevron.down")
-                                    .foregroundColor(.gray)
+                                Image(systemName: "chevron.down").foregroundColor(.gray)
                             }
                             .padding(13)
                             .background(Color.white)
@@ -134,8 +114,6 @@ struct ProfileSetupView: View {
                     }
                     .padding(.horizontal, 24)
 
-                    // MARK: Validation & save feedback
-                    // Shows inline errors (client-side validation or save failures) and success hint.
                     if !vm.errorMessage.isEmpty {
                         Text(vm.errorMessage)
                             .foregroundColor(.red)
@@ -149,29 +127,26 @@ struct ProfileSetupView: View {
                             .padding(.top, 10)
                     }
 
-                    // Primary CTA. Disabled until required fields are valid and not currently saving.
-                    // padding, corner radius, and tap behavior across the app.
                     ContinueButton(
                         title: vm.isSaving ? "Saving..." : "Continue",
                         enabled: vm.canContinue && !vm.isSaving,
-                        action: vm.continueTapped, // VM performs validation + persistence + navigation flag
+                        action: vm.continueTapped,
                         backgroundColor: .white
                     )
 
                     Spacer()
                 }
+                .aid("profilesetup.screen")
             }
-            // Navigation is driven by a VM flag to keep logic out of the View.
             .navigationDestination(isPresented: $vm.goToShoppingHabits) {
                 ShoppingHabitsView()
-                    .navigationBarBackButtonHidden(true) // Enforce forward flow in onboarding
+                    .navigationBarBackButtonHidden(true)
             }
         }
     }
 }
 
 // MARK: - Shared TextField visuals
-/// Centralizes padding, colors, and font so all fields look consistent and are easy to tweak.
 struct ProfileTextFieldStyle: TextFieldStyle {
     func _body(configuration: TextField<_Label>) -> some View {
         configuration

@@ -12,26 +12,20 @@ import SwiftUI
 /// MVVM: ViewModel that drives the **Forgot Password** screen.
 /// - Owns only UI state (email, loading, confirmation, error).
 /// - Exposes a single command (`sendPasswordReset`) that talks to Firebase Auth.
-/// - Keeps the View dumb: views bind to `@Published` properties and show/hide UI accordingly.
 class ForgotPasswordViewModel: ObservableObject {
 
     // MARK: - Input & UI state
 
     /// Two-way bound to the email TextField in the View.
     @Published var email = ""
-
     /// True while the reset request is in flight; used to disable inputs and show a spinner.
     @Published var isLoading = false
-
     /// When true, the View switches to the post-send confirmation state.
     @Published var showConfirmation = false
-
     /// Optional inline error (validation/network). We still show confirmation for privacy (see below).
     @Published var errorMessage = ""
-
     /// Optional callback the View installs so the VM can request dismissal on success.
     var onDismiss: (() -> Void)?
-
     /// Enables the primary button. Cheap gate to avoid empty submits or double-clicks.
     /// (Format validation is done again inside `sendPasswordReset()`.)
     var canSend: Bool {

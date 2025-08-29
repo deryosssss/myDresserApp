@@ -4,7 +4,10 @@
 //
 //  Created by Derya Baglan on 26/08/2025.
 //
-
+// XCUITest helper for the stats dashboard. It automates navigation to the My Stats screen, then provides assertions to:
+// Check that distribution charts (categories, colour) and usage sections (most/least worn) render.
+// Verify the zero-data state (no items/outfits).
+// Test interactive chart behavior, like tapping a legend pill to open the drill-down sheet or toggling the donut chart’s center label between hints and percentages.
 
 import XCTest
 

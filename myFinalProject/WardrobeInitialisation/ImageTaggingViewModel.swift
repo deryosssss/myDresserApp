@@ -8,6 +8,7 @@
 //  2) Builds a stable colour name → hex map for consistent UI chips.
 //  3) Uploads the image to Firebase Storage (≤10MB, downscaled JPEG) and saves a WardrobeItem to Firestore.
 //
+//
 
 import SwiftUI
 import UIKit
@@ -22,13 +23,13 @@ final class ImageTaggingViewModel: ObservableObject {
     @Published var deepTags: DeepTaggingResponse.DataWrapper? = nil           // rich labels/colors/items
 
     // MARK: - UI state
-    @Published var isLoading = false                                          // show/hide spinners
-    @Published var errorMessage: String? = nil                                // surfaced errors
+    @Published var isLoading = false
+    @Published var errorMessage: String? = nil
 
     // MARK: - Editable metadata fields (bound to preview sheet)
     @Published var category = ""
     @Published var subcategory = ""
-    @Published var colours: [String] = []                 // user-facing names
+    @Published var colours: [String] = []
     @Published var tags: [String] = []
     @Published var length = ""
     @Published var style = ""
@@ -42,22 +43,23 @@ final class ImageTaggingViewModel: ObservableObject {
     @Published var size = ""
     @Published var moodTags: [String] = []
 
-    // NEW: color name → hex map (keys normalized for stable lookup)
+    // color name → hex map (keys normalized for stable lookup)
     @Published var colorHexByName: [String: String] = [:]
 
-    // NEW fields to persist
+    // Persisted extras
     @Published var isFavorite: Bool = false
     @Published var sourceType: WardrobeItem.SourceType = .gallery
     @Published var gender: String = ""
 
-    private let client = LykdatClient()                                       // tagging API client
-    private let storageRoot = StorageBucket.instance.reference()               // Storage root
-    private let firestoreService = WardrobeFirestoreService()                  // Firestore CRUD
+    private let client = LykdatClient()
+    private let storageRoot = StorageBucket.instance.reference()
+    private let firestoreService = WardrobeFirestoreService()
+
+    private let isUITest = ProcessInfo.processInfo.arguments.contains("UI_TEST_MODE=1")
 
     // MARK: - Helpers
 
     func clearAll() {
-        // Reset everything back to defaults before a new tagging session
         detectedItems.removeAll()
         deepTags = nil
         category = ""
@@ -85,9 +87,8 @@ final class ImageTaggingViewModel: ObservableObject {
         s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
-    /// Build a stable name→hex map from `deepTags.colors`; keeps existing overrides on re-tagging.
     private func buildColorMap(from colors: [DeepTaggingResponse.Color]) -> [String: String] {
-        var out = colorHexByName // start from current map to preserve any user edits
+        var out = colorHexByName
         for c in colors {
             let key = norm(c.name)
             let hex = c.hex_code.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -102,11 +103,39 @@ final class ImageTaggingViewModel: ObservableObject {
     // MARK: - Auto-tagging
 
     func autoTag(image: UIImage) {
-        guard let data = image.jpegData(compressionQuality: 0.8) else { return } // encode once for both calls
+        // 💡 Test mode: avoid all network, fill deterministic values for assertions.
+        if isUITest {
+            isLoading = true
+            errorMessage = nil
+
+            // stable, human-looking defaults
+            self.category = "Top"
+            self.subcategory = "T-Shirt"
+            self.colours = ["Blue", "White"]
+            self.tags = ["Casual", "Minimal"]
+            self.length = "Regular"
+            self.style = "Casual"
+            self.designPattern = "Solid"
+            self.closureType = ""
+            self.fit = "Relaxed"
+            self.material = "Cotton"
+            self.dressCode = "Casual"
+            self.season = "Summer"
+            self.size = "M"
+            self.moodTags = ["Happy"]
+
+            // name→hex map used by colour chips
+            self.colorHexByName = ["blue": "3B82F6", "white": "FFFFFF"]
+
+            self.isLoading = false
+            return
+        }
+
+        guard let data = image.jpegData(compressionQuality: 0.8) else { return }
         isLoading = true
         errorMessage = nil
 
-        // 1) Run quick detection to seed category/subcategory
+        // 1) quick detection
         client.detectItems(imageData: data) { [weak self] result in
             guard let self = self else { return }
             Task { @MainActor in
@@ -118,10 +147,10 @@ final class ImageTaggingViewModel: ObservableObject {
                         self.subcategory = first.category.capitalized
                     }
                 case .failure:
-                    break // non-fatal; deepTags may still populate
+                    break
                 }
 
-                // 2) Run deep tagging for labels/colors/items
+                // 2) deep tags
                 self.client.deepTags(imageData: data) { deepResult in
                     Task { @MainActor in
                         self.isLoading = false
@@ -129,14 +158,10 @@ final class ImageTaggingViewModel: ObservableObject {
                         case .success(let tagData):
                             self.deepTags = tagData
 
-                            // Names (chips)
                             self.colours = tagData.colors.map { $0.name.capitalized }
                             self.tags    = tagData.labels.map { $0.name.capitalized }
-
-                            // Color hex map
                             self.colorHexByName = self.buildColorMap(from: tagData.colors)
 
-                            // Fill extra attributes when present
                             if let fashionItem = tagData.items.first {
                                 self.category    = fashionItem.name.capitalized
                                 self.subcategory = fashionItem.category.capitalized
@@ -164,22 +189,19 @@ final class ImageTaggingViewModel: ObservableObject {
 
     // MARK: - Firebase Persistence
 
-    /// Upload image to Storage, then save metadata to Firestore.
     func uploadAndSave(image: UIImage) {
         guard let uid = Auth.auth().currentUser?.uid else {
             self.errorMessage = "Please sign in before uploading."
             return
         }
 
-        // Keep under 10 MB rule + use JPEG for smaller size
         let prepared = prepareImageData(image, maxBytes: 10 * 1024 * 1024)
         guard let imageData = prepared.data else {
             self.errorMessage = "Could not encode image."
             return
         }
-        let contentType = prepared.contentType // "image/jpeg"
+        let contentType = prepared.contentType
 
-        // Path MUST match storage.rules: /wardrobe_images/{uid}/{fileName}
         let fileName = UUID().uuidString + ".jpg"
         let path = "wardrobe_images/\(uid)/\(fileName)"
         let ref  = storageRoot.child(path)
@@ -194,9 +216,8 @@ final class ImageTaggingViewModel: ObservableObject {
         print("[Upload] bucket=\(ref.bucket) path=\(path) bytes=\(imageData.count) ct=\(contentType)")
         #endif
 
-        let task = ref.putData(imageData, metadata: meta) // start upload
+        let task = ref.putData(imageData, metadata: meta)
 
-        // Handle failure event (callback-based)
         task.observe(.failure) { [weak self] snap in
             guard let self = self else { return }
             let nsErr = snap.error as NSError?
@@ -210,14 +231,12 @@ final class ImageTaggingViewModel: ObservableObject {
             #endif
         }
 
-        // Handle success → fetch download URL → save Firestore doc
         task.observe(.success) { [weak self] _ in
             guard let self = self else { return }
             #if DEBUG
             print("[Upload ✅] bucket=\(ref.bucket) path=\(path)")
             #endif
 
-            // Some backends need a brief delay before URL becomes available; retry once if needed.
             func fetchURL(retry: Bool) {
                 ref.downloadURL { url, err in
                     if let err = err as NSError? {
@@ -253,25 +272,7 @@ final class ImageTaggingViewModel: ObservableObject {
         }
     }
 
-    /// Debug helper: uploads to a profile_images/ path (not part of the main flow).
-    func debugUploadToProfile(image: UIImage) {
-        guard let uid = Auth.auth().currentUser?.uid,
-              let data = image.jpegData(compressionQuality: 0.8) else { return }
-
-        let fileName = UUID().uuidString + ".jpg"
-        let path = "profile_images/\(uid)/\(fileName)"
-        let ref  = StorageBucket.instance.reference(withPath: path)
-        let meta = StorageMetadata(); meta.contentType = "image/jpeg"
-
-        print("[DBG profile upload] bucket=\(ref.bucket) path=\(path)")
-        ref.putData(data, metadata: meta) { _, err in
-            if let err = err { print("[DBG profile upload ❌]", err) }
-            else { print("[DBG profile upload ✅]") }
-        }
-    }
-
     private func saveToFirestore(imageURL: String, imagePath: String, userId: String) {
-        // Build the WardrobeItem payload ( includes colorHexByName alongside display colours)
         let item = WardrobeItem(
             id:            nil,
             userId:        userId,
@@ -290,7 +291,7 @@ final class ImageTaggingViewModel: ObservableObject {
             season:        season,
             size:          size,
             colours:       colours,
-            colorHexByName: colorHexByName,        // store map
+            colorHexByName: colorHexByName,
             customTags:    tags,
             moodTags:      moodTags,
             isFavorite:    isFavorite,
@@ -316,12 +317,11 @@ final class ImageTaggingViewModel: ObservableObject {
     }
 }
 
-// MARK: - Image sizing helpers (downscale + compress to stay under Storage limits)
+// MARK: - Image sizing helpers
 
 private func prepareImageData(_ image: UIImage, maxBytes: Int) -> (data: Data?, contentType: String) {
-    // Downscale to ~1600px max side and compress to JPEG; reduce quality if still over the limit.
     let targetMax: CGFloat = 1600
-    let resized = resize(image, maxSide: targetMax)
+    let resized = resize(_image: image, maxSide: targetMax)
     var q: CGFloat = 0.85
     var data = resized.jpegData(compressionQuality: q)
 
@@ -332,10 +332,10 @@ private func prepareImageData(_ image: UIImage, maxBytes: Int) -> (data: Data?, 
     return (data, "image/jpeg")
 }
 
-private func resize(_ image: UIImage, maxSide: CGFloat) -> UIImage {
+private func resize(_image image: UIImage, maxSide: CGFloat) -> UIImage {
     let size = image.size
     let m = max(size.width, size.height)
-    guard m > maxSide else { return image }                           // no-op if already small
+    guard m > maxSide else { return image }
     let scale = maxSide / m
     let newSize = CGSize(width: size.width * scale, height: size.height * scale)
     UIGraphicsBeginImageContextWithOptions(newSize, true, 1.0)

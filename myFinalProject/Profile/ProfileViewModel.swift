@@ -4,7 +4,6 @@
 //
 //  Created by Derya Baglan on 30/07/2025
 //
-//  What this file does (flow):
 //  1) On init, reads Auth user + subscribes to Firestore /users/{uid} for live profile updates.
 //  2) Keeps UI fields (username, email, join date, avatar) in sync; downloads avatar if URL present.
 //  3) Exposes sign-out, and full delete flow with re-auth fallback (if required by Firebase).

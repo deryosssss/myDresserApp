@@ -125,7 +125,6 @@ class LykdatClient {
   }
 
   // MARK: - Public API
-
   /// Calls the item-detection endpoint; returns an array of detected items (name, category, box, confidence).
   /// Errors: network failures, invalid JSON, or non-data responses bubble up via Result.
   func detectItems(

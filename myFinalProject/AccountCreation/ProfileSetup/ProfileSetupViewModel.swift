@@ -26,19 +26,14 @@ final class ProfileSetupViewModel: ObservableObject {
 
     /// Required first name (trimmed before save).
     @Published var firstName = ""
-
     /// Optional last name (trimmed before save).
     @Published var lastName = ""
-
     /// Required username/handle (trimmed before save).
     @Published var userName = ""
-
     /// Date of birth; defaults to `Date()` so UI shows a placeholder until user picks.
     @Published var dob = Date()
-
     /// Chosen gender presentation (from a constrained list for clean analytics).
     @Published var genderPresentation = ""
-
     /// Optional avatar image selected by the user (raw UIImage before upload).
     @Published var profileImage: UIImage? = nil
 
@@ -47,27 +42,21 @@ final class ProfileSetupViewModel: ObservableObject {
 
     /// Controls the photo picker sheet (UIKit bridge).
     @Published var showImagePicker = false
-
     /// Controls the DOB wheel picker sheet.
     @Published var showDatePicker = false
-
     /// Controls the gender action sheet.
     @Published var showGenderPicker = false
-
     /// Inline error text for validation or save failures.
     @Published var errorMessage = ""
-
     /// When true, disables inputs and shows a spinner on the CTA.
     @Published var isSaving = false
-
     /// One-shot “saved!” feedback so the user knows work completed.
     @Published var showSuccess = false
-
     /// Navigation trigger → ShoppingHabitsView (used by `.navigationDestination`).
     @Published var goToShoppingHabits = false
 
 
-    /// Backing list for the gender action sheet. Keep values human-readable.
+    /// Backing list for the gender action sheet. Keep values human-readable and avoid typos.
     let genderOptions = ["Woman","Man","Non-binary","Transgender","Prefer not to say","Other"]
 
 
@@ -81,7 +70,7 @@ final class ProfileSetupViewModel: ObservableObject {
         dob < Date() // sanity: DOB must be in the past
     }
 
-    /// Pretty DOB label for the button (localized by DateFormatter).
+    /// DOB label for the button (localized by DateFormatter).
     var dobString: String {
         let f = DateFormatter()
         f.dateStyle = .medium
@@ -95,7 +84,6 @@ final class ProfileSetupViewModel: ObservableObject {
 
 
     // MARK: - User actions
-
     /// Primary CTA from the view.
     /// Flow:
     /// 1) Validate age (UI-level business rule).
@@ -114,7 +102,6 @@ final class ProfileSetupViewModel: ObservableObject {
             saveProfile()
         }
     }
-
 
     // MARK: - Save pipeline
 
@@ -154,19 +141,13 @@ final class ProfileSetupViewModel: ObservableObject {
 
 
     // MARK: - Storage (avatar)
-
     /// Simple container for uploaded image metadata (public URL + Storage path).
     private struct Uploaded { let url: String; let path: String }
-
     /// Compresses and uploads the avatar to Cloud Storage, then returns the download URL.
     /// Why compress:
     /// • Reduces bandwidth and Storage cost.
     /// • Keeps uploads snappy on mobile networks.
     ///
-    /// Notes:
-    /// • Uses a centralized `StorageBucket.instance` wrapper to obtain a bucket reference.
-    ///   If you don’t have this helper, replace with:
-    ///     `let ref = Storage.storage().reference(withPath: path)`
     private func uploadProfileImage(
         _ image: UIImage,
         for user: User,
@@ -197,7 +178,6 @@ final class ProfileSetupViewModel: ObservableObject {
         // Stable path so subsequent uploads overwrite the previous avatar.
         let path = "profile_images/\(user.uid)/profile.jpg"
 
-        // App-level bucket helper; see note above if you prefer `Storage.storage()`.
         let ref = StorageBucket.instance.reference(withPath: path)
 
         let meta = StorageMetadata()
@@ -223,7 +203,6 @@ final class ProfileSetupViewModel: ObservableObject {
             }
         }
     }
-
 
     // MARK: - Firestore (profile document)
 

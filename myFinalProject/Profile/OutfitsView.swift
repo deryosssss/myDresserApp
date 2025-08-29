@@ -6,6 +6,12 @@
 
 import SwiftUI
 
+// Displays all of a user’s saved outfits in a two-column grid.
+// It includes:
+// - A search bar, favourite filter, and sort menu (Newest, Oldest, A–Z, Z–A).
+// - The ability to tap an outfit to open its detail view.
+// - An empty state message when no outfits match.
+
 struct OutfitsView: View {
     // Local VM just for this screen (listens to outfits)
     @StateObject private var vm = WardrobeViewModel()

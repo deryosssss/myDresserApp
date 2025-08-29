@@ -48,16 +48,14 @@ struct ManualSuggestionView: View {
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { toolbar }                         // Centered title only
-            .safeAreaInset(edge: .bottom) { bottomBar }  // Persistent preset + actions bar
-
-            // Kick off data load & apply optional pinned item once data arrives.
+            .toolbar { toolbar }
+            .safeAreaInset(edge: .bottom) { bottomBar }
+            
             .task {
                 await vm.loadAll()
                 await applyStartPinnedIfNeeded()
             }
 
-            // Simple, non-blocking error surface (VM controls message).
             .alert("Error", isPresented: .constant(vm.errorMessage != nil)) {
                 Button("OK") { vm.errorMessage = nil }
             } message: { Text(vm.errorMessage ?? "") }
@@ -66,7 +64,7 @@ struct ManualSuggestionView: View {
             .sheet(item: $selectedItemForDetail) { item in
                 ItemDetailView(
                     item: item,
-                    wardrobeVM: WardrobeViewModel(), // lightweight, local VM for this sheet
+                    wardrobeVM: WardrobeViewModel(),
                     onDelete: {
                         selectedItemForDetail = nil
                         Task { await vm.loadAll() }
@@ -74,7 +72,6 @@ struct ManualSuggestionView: View {
                 )
             }
 
-            // Live preview of the composed outfit. On save → delegate to VM then close.
             .sheet(isPresented: $showingPreview) {
                 OutfitPreviewSheet(
                     items: vm.selectedItems(),

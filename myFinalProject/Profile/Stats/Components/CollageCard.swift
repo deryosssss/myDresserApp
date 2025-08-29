@@ -6,6 +6,8 @@
 //
 import SwiftUI
 
+// Renders up to six image URLs in a responsive 3×2 collage grid within a rounded “card,” sizing the tiles via GeometryReader. It loads each image with AsyncImage, clips to rounded corners, and falls back to white tiles for loading/errors or missing images.
+
 struct CollageCard: View {
     let urls: [String]
     var body: some View {

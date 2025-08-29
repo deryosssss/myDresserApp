@@ -40,7 +40,6 @@ struct Retry {
 
 // MARK: - GDPR delete (BB-NFR-NFR2-01)
 
-/// Protocols we can fake
 protocol Authing {
     var currentUser: AuthUser? { get }
     func signOut() throws
@@ -76,7 +75,6 @@ final class AccountDeletionService {
     }
 }
 
-/// Fakes
 final class FakeUser: AuthUser {
     let uid: String
     var deleted = false

@@ -4,6 +4,7 @@
 //
 //  Created by Derya Baglan on 26/08/2025.
 //
+// XCUITest helper for the manual outfit builder. It automates choosing preset layouts (e.g. top–bottom–shoes, with/without outerwear), rolling outfit suggestions, and locking/unlocking layers. It also provides assertions to check the correct carousels are shown, that saving is disabled until valid, and that locked layers prevent scrolling — making manual outfit flow tests more reliable and concise.
 
 
 import XCTest

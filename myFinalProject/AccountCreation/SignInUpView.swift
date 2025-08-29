@@ -42,7 +42,7 @@ struct SignInUpView: View {
                                 .padding(.vertical, 12)
                                 .background(Color.white)
                                 .cornerRadius(6)
-                        }
+                        }.aid("signin.signup")
                         
                         Button(action: { vm.signInTapped() }) {
                             Text("Sign in")
@@ -52,7 +52,7 @@ struct SignInUpView: View {
                                 .padding(.vertical, 12)
                                 .background(Color.white)
                                 .cornerRadius(6)
-                        }
+                        }.aid("signin.signin")
                         
                         HStack(spacing: 14) {
                             Button(action: { vm.googleTapped() }) {

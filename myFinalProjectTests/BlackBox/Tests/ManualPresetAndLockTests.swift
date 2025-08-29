@@ -4,6 +4,11 @@
 //
 //  Created by Derya Baglan on 26/08/2025.
 //
+// ManualPresetAndLockTests is a UI test suite for the manual outfit builder. It verifies:
+// Presets: default Top+Bottom+Shoes preset shows 3 carousels (FR12-01), and switching to +Outerwear shows 4 (FR12-02).
+// Save validation: saving is blocked if shoes are missing (FR12-03).
+// Locking: locking a layer (e.g., top) keeps it fixed across shuffles (FR16-01), unlocking allows changes (FR16-02), and locked layers prevent swipe gestures (FR16-03).
+// It uses ManualRobot to simplify preset, lock, and roll interactions in tests.
 
 import XCTest
 

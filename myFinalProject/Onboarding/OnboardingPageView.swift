@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// One page of the onboarding carousel.
-/// Renders a centered “card” with title, optional subtitle/image, and a continue CTA on the last page.
+/// Renders a centered “card” with title, optional subtitle/image
 /// The parent `OnboardingContainerView` supplies the current page index and total count.
 struct OnboardingPageView: View {
     // Immutable content model for this page (title/subtitle/optional image).

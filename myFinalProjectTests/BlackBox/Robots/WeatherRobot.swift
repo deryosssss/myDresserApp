@@ -4,7 +4,11 @@
 //
 //  Created by Derya Baglan on 26/08/2025.
 //
-
+//
+// XCUITest helper for the weather-based outfit recommendations. It checks that:
+// Weather cards appear on the screen.
+// The dress code locks after the user makes an initial choice.
+// If it’s raining, the system prefers boots in the shoe slot.
 
 import XCTest
 

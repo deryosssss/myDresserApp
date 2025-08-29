@@ -6,6 +6,9 @@
 //
 
 import XCTest
+
+// Checks the CO₂ assumptions and formula logic
+
 @testable import myFinalProject
 
 final class CO2SettingsStoreTests: XCTestCase {
@@ -24,7 +27,6 @@ final class CO2SettingsStoreTests: XCTestCase {
         s.productionKg = 12
         s.avgWearsPerPurchase = 30
         s.laundryKg = 0.1
-        // 0.3*(12/30) - 0.1 = 0.02
         XCTAssertEqual(s.estimatedKgPerOutfit, 0.02, accuracy: 0.0001)
     }
 

@@ -79,7 +79,6 @@ final class AuthViewModel: ObservableObject {
             try await u.reload()
             self.user = Auth.auth().currentUser
         } catch {
-            // not fatal; you could surface this if you want
         }
     }
 

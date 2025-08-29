@@ -7,6 +7,8 @@
 
 import SwiftUI
 
+// It shows the profile image, username, email, and join date at the top, followed by navigation buttons to account details, stats, outfits, favourites, and notifications. It also includes options to log out, open help, or delete the account, with confirmation prompts and re-authentication when needed
+
 struct ProfileView: View {
     // Default placeholders (shown until VM loads)
     var username: String = "Username"

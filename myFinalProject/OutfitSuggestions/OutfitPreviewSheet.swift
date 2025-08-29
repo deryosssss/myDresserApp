@@ -129,7 +129,6 @@ struct OutfitPreviewSheet: View {
                     .padding(.bottom, 8)
                 }
 
-                // CTA Row
                 HStack(spacing: 12) {
                     Button {
                         onClose()

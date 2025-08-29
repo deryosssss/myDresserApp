@@ -5,6 +5,12 @@
 //  Created by Derya Baglan on 26/08/2025.
 //
 
+// CarbonFootprintTotalTests is a UI test that validates the wardrobe’s carbon footprint calculation. It:
+// Opens the stats dashboard via CO2Robot.
+// Reads the CO₂ total displayed in the UI.
+// Exports the underlying wardrobe items (test-only hook) and computes the expected footprint by summing estimatedFootprintKg for active items.
+// Compares the UI total with the computed sum (rounded to 2 decimals), ensuring the difference is ≤ 0.01 kg.
+
 import XCTest
 
 @MainActor

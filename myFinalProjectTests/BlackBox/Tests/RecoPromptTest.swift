@@ -4,6 +4,16 @@
 //
 //  Created by Derya Baglan on 26/08/2025.
 //
+// RecoPromptTests is a UI test suite for the AI outfit recommendation (“Dress Me”) flow. It verifies that:
+// Prompts like “all black outfit” return a full outfit with shoes (FR11-01).
+// Weather context (rain) adds outerwear and avoids sandals (FR11-02).
+// Empty wardrobes show the empty state gracefully (FR11-03).
+// Colour prompts (e.g., “red heels”) bind correctly to the shoes layer (FR11-04).
+// Prompts bias toward dress-based outfits (FR11-05) or top+bottom-based outfits (FR11-06).
+// A soft-match note appears if an exact colour is missing (FR11-07).
+// Skipping a recommendation replaces only that card, keeping deck size stable (FR11-08).
+// Saving a recommendation persists the outfit (FR11-09).
+// It uses RecoRobot and NavRobot helpers to keep steps clean and reliable.
 
 
 import XCTest
@@ -96,6 +106,5 @@ final class RecoPromptTests: XCTestCase {
     // BB-RECO-FR11-09 — Save persists
     func test_BB_RECO_FR11_09_save_persists() {
         RecoRobot(app: app).typePrompt("date night").tapCreate().saveFirstCard(name: "UT Date Night")
-        // Smoke: success toast already asserted
     }
 }

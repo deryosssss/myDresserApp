@@ -32,13 +32,13 @@ final class HomeViewModel: ObservableObject {
     /// Last 6 added items (independent of window).
     @Published private(set) var recentItems: [WardrobeItem] = []
 
-    // Usage KPIs (bound to `window`)
+    // Usage (bound to `window`)
     @Published private(set) var usedItemCount: Int = 0
     @Published private(set) var usagePercent: Int = 0
     /// Count of items not used in 90 days (explicitly *not* tied to the selected window).
     @Published private(set) var unused90Count: Int = 0
 
-    // Month / CO₂ / streak
+    // Month / CO₂
     /// Outfits logged since the start of the current calendar month.
     @Published private(set) var outfitsThisMonth: Int = 0
     /// Friendly sentence used by the header card.
@@ -131,7 +131,7 @@ final class HomeViewModel: ObservableObject {
                 if let pick = pool.randomElement() {
                     self.challengeFocusItem = pick
                     self.challengeImages = [pick.imageURL].compactMap { $0 }
-                    self.challengeText = "Make an outfit with **this item**"
+                    self.challengeText = "Make an outfit with this item"
                     return
                 }
             }
@@ -140,11 +140,11 @@ final class HomeViewModel: ObservableObject {
             let categories = Set(vm.items.map { self.normalizeCategory($0.category) })
             let colours    = Set(vm.items.flatMap { $0.colours.map { $0.capitalized } })
             let prompts: [String] = [
-                ifLet(categories.randomElement()) { "Wear something from **\($0)**" },
-                ifLet(colours.randomElement())    { "Build an outfit around **\($0)**" },
+                ifLet(categories.randomElement()) { "Wear something from \($0)" },
+                ifLet(colours.randomElement())    { "Build an outfit around \($0)" },
                 "Pick one item you haven’t worn in 90 days",
                 "Create a look using only two colours",
-                "Try a new **layering** combo today"
+                "Try a new layering combo today"
             ].compactMap { $0 }
 
             self.challengeFocusItem = nil
@@ -167,7 +167,6 @@ final class HomeViewModel: ObservableObject {
     }
 
     // MARK: - Internals
-
     /// Recomputes *window-bound* metrics:
     /// - usage (count and %)
     /// - unused in 90d (always 90, not tied to picker)

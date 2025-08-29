@@ -4,6 +4,11 @@
 //
 //  Created by Derya Baglan on 24/08/2025.
 //
+// FirebaseEmulator is a small HTTP client for the Firebase Auth Emulator used in UI tests. It provides helpers to:
+// Create test users in the emulator.
+// Send and retrieve verification and password reset OOB links.
+// Consume verification links and perform password resets with the provided oobCode.
+// Internally it calls the emulator’s REST endpoints and parses responses, letting automated tests simulate real Firebase Auth flows without touching production.
 
 import Foundation
 import XCTest

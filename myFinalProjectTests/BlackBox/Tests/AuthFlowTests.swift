@@ -4,6 +4,13 @@
 //
 //  Created by Derya Baglan on 24/08/2025.
 //
+// UI test suite for the app’s authentication flows using the Firebase Auth emulator. It covers:
+// Sign-up: happy path, duplicate email, weak password, invalid email, mismatched password, and terms not accepted.
+// Email verification: handling valid links (success) and noting emulator skips for expired/reuse.
+// Login: success, wrong password, non-existent account, and deleted account (placeholder).
+// Password recovery: starting reset (generic confirmation), unregistered email handling, and completing a reset with a new strong password (old password rejected).
+// Account deletion: confirming and cancelling delete flows.
+// It uses AuthRobot for cleaner UI steps, Fixtures for test credentials, and FirebaseEmulator to simulate backend behavior.
 
 import XCTest
 

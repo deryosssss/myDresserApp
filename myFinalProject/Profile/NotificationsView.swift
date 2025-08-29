@@ -7,6 +7,8 @@
 
 import SwiftUI
 
+// NotificationsView is a placeholder screen for the app’s notifications feature that will be later implemented 
+
 struct NotificationsView: View {
     @State private var showComingSoon = false
 

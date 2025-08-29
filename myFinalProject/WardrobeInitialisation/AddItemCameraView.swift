@@ -1,6 +1,5 @@
-//
-//  AddItemCameraView.swift
-//  myFinalProject
+// AddItemCameraView.swift
+// myFinalProject
 //
 //  Created by Derya Baglan on 31/07/2025
 //
@@ -48,6 +47,7 @@ struct AddItemCameraView: View {
               .padding(.top)
               .padding(.bottom)
               .frame(maxWidth: .infinity)
+              .aid("add.title")
             
             // 1) Tab selector
             Picker("", selection: $selectedTab) {
@@ -56,6 +56,7 @@ struct AddItemCameraView: View {
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
+            .aid("add.tabs")
 
             Divider()
 
@@ -64,14 +65,15 @@ struct AddItemCameraView: View {
                 libraryGrid                                         // camera + picker + thumbnails
             } else {
                 AddItemWebView()                                    // separate web-scrape/import flow
+                    .aid("add.webTab")
             }
         }
         // 3) Overlay tagging progress/errors
         .overlay(
             VStack {
-                if taggingVM.isLoading { ProgressView("Saving…") }  // simple progress banner
+                if taggingVM.isLoading { ProgressView("Saving…").aid("tagging.loading") }  // simple progress banner
                 if let err = taggingVM.errorMessage {
-                    Text(err).foregroundColor(.red)                  // show tagging error (if any)
+                    Text(err).foregroundColor(.red).aid("tagging.error")                    // show tagging error (if any)
                 }
             }
             .padding(),
@@ -107,6 +109,7 @@ struct AddItemCameraView: View {
                     .frame(height: 150)
                     .cornerRadius(8)
                 }
+                .aid("add.camera")
                 .sheet(isPresented: $showingCamera) {
                     // UIKit camera wrapper; returns a UIImage or nil
                     CameraImagePicker { image in
@@ -131,6 +134,7 @@ struct AddItemCameraView: View {
                     .frame(height: 150)
                     .cornerRadius(8)
                 }
+                .aid("add.library")
                 .onChange(of: pickerItems) { newItems in
                     // Load each selected item as Data → UIImage, then process
                     for item in newItems {
@@ -154,10 +158,12 @@ struct AddItemCameraView: View {
                         .frame(height: 100)
                         .clipped()
                         .cornerRadius(8)
+                        .aid("add.thumb.\(idx)")
                 }
             }
             .padding(8)
         }
+        .aid("add.libraryGrid")
     }
 
     // MARK: — Helpers

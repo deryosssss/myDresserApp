@@ -10,6 +10,7 @@ import SwiftUI
 
 /// Overview banner showing totals for items and outfits.
 /// Tapping tiles triggers the provided closures (navigate to Wardrobe tabs).
+///
 struct HomeOverviewCard: View {
     let totalItems: Int
     let totalOutfits: Int
@@ -27,7 +28,7 @@ struct HomeOverviewCard: View {
             }
         }
         .padding(.horizontal, HomeView.UX.cardPadding)
-        .padding(.vertical, 8) // slimmer than default card padding
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: HomeView.UX.cardCorner)
@@ -39,7 +40,7 @@ struct HomeOverviewCard: View {
     /// Heights + sizes tuned to feel consistent with your other cards.
     private func statTile(title: String, value: String, system: String) -> some View {
         HStack(spacing: 10) {
-            // smaller icon chip
+
             ZStack {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(Color(.systemGray5))
@@ -64,9 +65,9 @@ struct HomeOverviewCard: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 8)       // tighter
-        .padding(.horizontal, 10)    // tighter
-        .frame(height: 52)           // fixed compact height
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .frame(height: 52)           
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.white)

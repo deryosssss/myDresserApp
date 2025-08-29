@@ -6,6 +6,8 @@
 //
 //
 
+// data model representing a user’s profile information in Firestore
+
 import Foundation
 import FirebaseFirestore
 

@@ -198,7 +198,6 @@ private struct SuggestionCard: View {
                 }
             }
 
-            // Optional explanation for near-miss/approximate matches (helps UX trust)
             if let note = candidate.softMatchNote {
                 Text(note)
                     .font(.caption)

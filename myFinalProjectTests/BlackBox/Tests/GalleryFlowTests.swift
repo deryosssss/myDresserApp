@@ -7,6 +7,13 @@
 
 import XCTest
 
+// GalleryFlowTests is a UI test suite that validates the outfits gallery. It covers:
+// Saving outfits to the gallery and confirming thumbnails appear and openable (FR18-01).
+// Opening outfit details directly from the gallery (FR18-02).
+// Deleting an outfit from the gallery and ensuring the grid remains stable (FR18-03).
+// Ordering logic, verifying that newly created outfits appear first in the gallery (FR18-04).
+// It uses GalleryRobot to keep navigation, assertions, and fixture creation concise and reliable.
+
 @MainActor
 final class GalleryFlowTests: XCTestCase {
     var app: XCUIApplication!

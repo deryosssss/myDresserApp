@@ -12,6 +12,8 @@ import SwiftUI
 /// - Avatar on the left (or initials fallback)
 /// - “Welcome” label + “Hi, <name>”
 /// - Soft gradient card
+///
+
 struct HomeGreetingHeader: View {
     let displayName: String
     let profileImage: UIImage?

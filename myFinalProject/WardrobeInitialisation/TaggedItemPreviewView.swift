@@ -1,6 +1,5 @@
-//
-//  TaggedItemPreviewView.swift
-//  myFinalProject
+// TaggedItemPreviewView.swift
+// myFinalProject
 //
 //  Created by Derya Baglan on 01/08/2025
 //
@@ -57,6 +56,7 @@ struct TaggedItemPreviewView: View {
                 Text("Review & Save")
                     .font(AppFont.spicyRice(size: 28))
                     .padding(.top)
+                    .aid("preview.title")
 
                 // Dismissible info banner about auto-tags
                 if showAutoBanner {
@@ -91,6 +91,7 @@ struct TaggedItemPreviewView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .padding(.horizontal)
                     .transition(.move(edge: .top).combined(with: .opacity))
+                    .aid("preview.banner")
                 }
 
                 // Large image preview
@@ -101,11 +102,13 @@ struct TaggedItemPreviewView: View {
                     .background(Color(white: 0.93))
                     .cornerRadius(12)
                     .padding(.horizontal)
+                    .aid("preview.image")
 
                 // ===== Colours (chips) =====
                 if !taggingVM.colours.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Colours").bold().padding(.horizontal)
+                            .aid("preview.colours.title")
 
                         // Horizontal list of colour chips, using stored hex map where possible
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -122,34 +125,51 @@ struct TaggedItemPreviewView: View {
                                         .background(bg)
                                         .foregroundColor(Color.isDark(hex: hex) ? .white : .black)
                                         .cornerRadius(12)
+                                        .aid("preview.colour.\(key)")
                                 }
                                 TinyEditButton { startEditing(.colours) }              // open edit sheet for colours
+                                    .aid("preview.colours.edit")
                             }
                             .padding(.horizontal)
                         }
+                        .aid("preview.colours.scroll")
                     }
                 }
 
                 // ===== Single-value chips (tap to edit) =====
                 ChipRowView(title: "Category",         text: taggingVM.category)      { startEditing(.category) }
+                    .aid("preview.category")
                 ChipRowView(title: "Sub Category",     text: taggingVM.subcategory)   { startEditing(.subcategory) }
+                    .aid("preview.subcategory")
                 ChipRowView(title: "Length",           text: taggingVM.length)        { startEditing(.length) }
+                    .aid("preview.length")
                 ChipRowView(title: "Style",            text: taggingVM.style)         { startEditing(.style) }
+                    .aid("preview.style")
                 ChipRowView(title: "Design / Pattern", text: taggingVM.designPattern) { startEditing(.designPattern) }
+                    .aid("preview.design")
                 ChipRowView(title: "Closure",          text: taggingVM.closureType)   { startEditing(.closureType) }
+                    .aid("preview.closure")
                 ChipRowView(title: "Fit",              text: taggingVM.fit)           { startEditing(.fit) }
+                    .aid("preview.fit")
                 ChipRowView(title: "Material",         text: taggingVM.material)      { startEditing(.material) }
+                    .aid("preview.material")
 
                 // ===== Multi-value chips =====
                 ChipSectionView(title: "Custom Tags", chips: taggingVM.tags)     { startEditing(.customTags) }
+                    .aid("preview.customTags")
                 ChipRowView(title: "Dress Code",       text: taggingVM.dressCode) { startEditing(.dressCode) }
+                    .aid("preview.dressCode")
                 ChipRowView(title: "Season",           text: taggingVM.season)    { startEditing(.season) }
+                    .aid("preview.season")
                 ChipRowView(title: "Size",             text: taggingVM.size)      { startEditing(.size) }
+                    .aid("preview.size")
                 ChipSectionView(title: "Mood Tags",    chips: taggingVM.moodTags) { startEditing(.moodTags) }
+                    .aid("preview.moodTags")
 
                 // MARK: — More (Source / Gender / Favorite)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("More").bold().padding(.horizontal)
+                        .aid("preview.more.title")
 
                     // Source type (camera/gallery/web)
                     HStack {
@@ -162,6 +182,7 @@ struct TaggedItemPreviewView: View {
                         }
                         .pickerStyle(.segmented)
                         .frame(maxWidth: 260)
+                        .aid("preview.source.picker")
                     }
                     .padding(.horizontal)
 
@@ -177,6 +198,7 @@ struct TaggedItemPreviewView: View {
                         }
                         .pickerStyle(.segmented)
                         .frame(maxWidth: 320)
+                        .aid("preview.gender.picker")
                     }
                     .padding(.horizontal)
 
@@ -185,6 +207,7 @@ struct TaggedItemPreviewView: View {
                         Text("Mark as Favorite")
                     }
                     .padding(.horizontal)
+                    .aid("preview.favorite.toggle")
                 }
                 .padding(.top, 4)
 
@@ -200,6 +223,7 @@ struct TaggedItemPreviewView: View {
                     .background(Color.brandPink)
                     .foregroundColor(.black)
                     .cornerRadius(8)
+                    .aid("preview.delete")
 
                     Button("Save") {
                         taggingVM.uploadAndSave(image: originalImage) // upload + Firestore save
@@ -211,6 +235,7 @@ struct TaggedItemPreviewView: View {
                     .background(Color.brandGreen)
                     .foregroundColor(.black)
                     .cornerRadius(8)
+                    .aid("preview.save")
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 16)
@@ -232,6 +257,7 @@ struct TaggedItemPreviewView: View {
                 currentCategory:    { taggingVM.category }
             )
         }
+        .aid("preview.root")
     }
 
     // MARK: - Bindings & Editing

@@ -136,7 +136,7 @@ struct HomeView: View {
                         showInfo: $showBadgesInfo
                     )
 
-                    // CTA
+                    // Create outfits
                     Button {
                         aiInitialPrompt = vm.aiPrompt()
                         showAISheet = true
@@ -169,12 +169,20 @@ struct HomeView: View {
             .sheet(isPresented: $showAISheet) {
                 AIStylistSheet(userId: authUID, initialPrompt: aiInitialPrompt)
             }
+            // CO₂ Insights (passes the store so the internal editor works)
             .sheet(isPresented: $showCO2Details) {
-                CO2InsightsView(outfits: wardrobeVM.allOutfits, factor: co2.estimatedKgPerOutfit)
+                CO2InsightsView(outfits: wardrobeVM.allOutfits,
+                                factor: co2.estimatedKgPerOutfit)
+                    .environmentObject(co2)
             }
+
+
+            // CO₂ Assumptions
             .sheet(isPresented: $showCO2Settings) {
-                CO2AssumptionsSheet(settings: co2)
+                CO2AssumptionsEditor()
+                    .environmentObject(co2)
             }
+
             .sheet(isPresented: $showWardrobeSheet) {
                 WardrobeView(viewModel: wardrobeVM, initialTab: wardrobeInitialTab)
             }

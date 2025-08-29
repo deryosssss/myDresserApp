@@ -1,6 +1,5 @@
-//
-//  CropImageView.swift
-//  myFinalProject
+// CropImageView.swift
+// myFinalProject
 //
 //  Created by Derya Baglan on 31/07/2025
 //
@@ -33,6 +32,7 @@ struct CropImageView: View {
                     .frame(width: geo.size.width, height: geo.size.height)
                     .background(Color.black)
                     .clipped()
+                    .aid("crop.image")
 
                 // Dim everything except the crop rect using a path subtraction mask
                 Color.black.opacity(0.4)
@@ -62,6 +62,7 @@ struct CropImageView: View {
                                 }
                                 .onEnded { _ in startCropRect = cropRect } // persist new baseline
                         )
+                        .aid(handleId(for: corner))
                 }
 
                 // Controls stack (kept below banner when visible)
@@ -76,6 +77,7 @@ struct CropImageView: View {
                             .background(Color.white.opacity(0.98))
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                             .foregroundColor(.black)
+                            .aid("crop.cancel")
 
                         Spacer()
 
@@ -93,6 +95,7 @@ struct CropImageView: View {
                         .background(Color.white.opacity(0.98))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                         .foregroundColor(.black)
+                        .aid("crop.reset")
                     }
                     .padding(.horizontal)
 
@@ -110,6 +113,7 @@ struct CropImageView: View {
                     .foregroundColor(.black)
                     .shadow(radius: 1, y: 1)
                     .padding(.bottom, 20)
+                    .aid("crop.done")
                 }
             }
             // Prominent safety/UX banner pinned to the top
@@ -123,6 +127,7 @@ struct CropImageView: View {
                     .padding(.horizontal, 12)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .zIndex(1)
+                    .aid("crop.banner")
                 }
             }
             .onAppear {
@@ -147,6 +152,15 @@ struct CropImageView: View {
         case .topRight:    return CGPoint(x: cropRect.maxX, y: cropRect.minY)
         case .bottomLeft:  return CGPoint(x: cropRect.minX, y: cropRect.maxY)
         case .bottomRight: return CGPoint(x: cropRect.maxX, y: cropRect.maxY)
+        }
+    }
+
+    private func handleId(for corner: Corner) -> String {
+        switch corner {
+        case .topLeft: return "crop.handle.topLeft"
+        case .topRight: return "crop.handle.topRight"
+        case .bottomRight: return "crop.handle.bottomRight"
+        case .bottomLeft: return "crop.handle.bottomLeft"
         }
     }
 

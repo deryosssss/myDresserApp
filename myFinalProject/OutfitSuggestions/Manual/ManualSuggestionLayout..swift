@@ -12,14 +12,15 @@ enum ManualLayout {
     static let topPadding: CGFloat = 20
     static let boxCorner: CGFloat = 14
     static let buttonHeight: CGFloat = 20
-    static let sliderSpacing: CGFloat = 14   // horizontal spacing between cards
+    static let sliderSpacing: CGFloat = 14
+
 }
 
 /// Computed sizing based on how many layers are shown.
 struct ManualAdaptiveSize {
     let rowHeight: CGFloat
     let cardWidth: CGFloat
-    let sectionSpacing: CGFloat     // tighter vertical spacing between layers
+    let sectionSpacing: CGFloat   
     let emptyBoxHeight: CGFloat
 
     static func forLayers(_ count: Int) -> ManualAdaptiveSize {

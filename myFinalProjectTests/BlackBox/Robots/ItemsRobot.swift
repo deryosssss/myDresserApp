@@ -4,8 +4,14 @@
 //
 //  Created by Derya Baglan on 24/08/2025.
 //
+//
+// ItemsRobot is an XCUITest helper for the item-adding flow.
+// It automates:
+// Navigating to the Add tab.
+// Adding fixture items from gallery or web.
+// Saving items from the preview screen.
+// Assertions to verify tags appear, the “saving” banner dismisses, or error labels show up.
 
-// ItemsRobot.swift (UITests target)
 import XCTest
 
 struct ItemsRobot {

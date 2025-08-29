@@ -7,6 +7,8 @@
 
 import SwiftUI
 
+// SwiftUI dashboard that summarises the user’s wardrobe and usage over a selected time window
+
 struct StatsView: View {
     // Shared data VM from your app
     @EnvironmentObject private var wardrobeVM: WardrobeViewModel

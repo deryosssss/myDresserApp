@@ -38,9 +38,6 @@ struct ManualSuggestionStore {
     }
 
     /// Creates an outfit document with all the chosen items.
-    /// Notes:
-    /// • Uses `serverTimestamp()` for created/lastWorn so timeline is consistent.
-    /// • `name/occasion/description/isFavorite/tags` are passed through for later analytics/search.
     func saveOutfit(
         userId: String,
         name: String,
@@ -69,18 +66,17 @@ struct ManualSuggestionStore {
             "name": name,
             "description": description,
             "occasion": occasion ?? "",
-            "imageURL": coverURL,            // hero/cover image in list
-            "itemImageURLs": itemImageURLs,  // collage sources
+            "imageURL": coverURL,
+            "itemImageURLs": itemImageURLs,
             "itemIDs": itemIDs,
             "tags": tags,
-            "wearCount": 0,                  // starts at 0; increments elsewhere
+            "wearCount": 0,
             "isFavorite": isFavorite,
-            "source": "manual",              // provenance for analytics
+            "source": "manual",
             "createdAt": FieldValue.serverTimestamp(),
             "lastWorn": FieldValue.serverTimestamp()
         ]
 
-        // Optional backdated creation date (e.g., when user sets a specific date in preview).
         if let createdOn {
             payload["createdOn"] = Timestamp(date: createdOn)
         }
@@ -168,12 +164,11 @@ struct ManualSuggestionStore {
 /// • Saves composed outfits via the Store.
 @MainActor
 final class ManualSuggestionViewModel: ObservableObject {
-    // UI model the View binds to
-    @Published var layers: [LayerSelection]                    // logical rows with lock + selected item id
-    @Published var itemsByLayer: [LayerKind: [WardrobeItem]] = [:] // source arrays by kind
-    @Published var selectedIndex: [LayerKind: Int] = [:]       // index into each source array
 
-    // UX flags
+    @Published var layers: [LayerSelection]
+    @Published var itemsByLayer: [LayerKind: [WardrobeItem]] = [:]
+    @Published var selectedIndex: [LayerKind: Int] = [:]
+
     @Published var isSaving = false
     @Published var errorMessage: String? = nil
 
@@ -189,13 +184,11 @@ final class ManualSuggestionViewModel: ObservableObject {
     /// Loads item sources for *all* current layers in parallel, then
     /// clamps/repairs the selected indices to stay in-range.
     func loadAll() async {
-        // Capture locals to avoid capturing `self` across awaits (safer under concurrency).
         let localStore = self.store
         let localUserId = self.userId
         let snapshotLayers = self.layers
 
         await withTaskGroup(of: (LayerKind, [WardrobeItem]).self) { group in
-            // Spawn a fetch task per layer kind.
             for layer in snapshotLayers {
                 let kind = layer.kind
                 group.addTask {

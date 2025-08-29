@@ -16,13 +16,12 @@ import SwiftUI
 struct HomeCO2Card: View {
     let outfitsThisMonth: Int
     @ObservedObject var settings: CO2SettingsStore
-
     /// The parent owns presentation state. When `true`, we present the assumptions sheet.
     @Binding var showSettings: Bool
-
+    
     /// Open the detailed CO₂ trends view.
     var onOpenDetails: () -> Void
-
+    
     private var kilograms: Double {
         Double(outfitsThisMonth) * settings.estimatedKgPerOutfit
     }
@@ -31,7 +30,6 @@ struct HomeCO2Card: View {
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("We estimate you saved")
-                // Show the active model under the hood (simple vs advanced)
                 Text(settings.mode == .simple
                      ? "Based on \(settings.simplePerOutfit, specifier: "%.1f") kg per outfit"
                      : "Advanced model (purchase displacement + care)")

@@ -4,6 +4,7 @@
 //
 //  Created by Derya Baglan on 26/08/2025.
 //
+// UI test helper for validating the CO₂ tracking features. It automates navigation to the stats dashboard, reads the wardrobe’s CO₂ total from labels
 
 import XCTest
 import UIKit

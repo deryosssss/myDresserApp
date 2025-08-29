@@ -13,7 +13,6 @@ import SwiftUI
 /// • Offer “Forgot password” and “Sign up” exits.
 /// • Optional social sign-in affordances (currently placeholders).
 ///
-///
 struct SignInView: View {
     /// Screen-scoped state holder. Owns inputs, validation, errors and navigation flags.
     @StateObject private var vm = SignInViewModel()
@@ -24,7 +23,7 @@ struct SignInView: View {
                 Color.brandYellow.ignoresSafeArea()
 
                 VStack(alignment: .leading, spacing: 0) {
-                    Spacer().frame(height: 150) // Creates breathing room under the notch.
+                    Spacer().frame(height: 150)
 
                     Text("Sign In")
                         .font(AppFont.spicyRice(size: 36))
@@ -42,6 +41,7 @@ struct SignInView: View {
                     // Form fields + social buttons live in a stack to share horizontal padding.
                     VStack(spacing: 16) {
                         TextField("Email *", text: $vm.email)
+                            .aid("signin.email")
                             .font(AppFont.agdasima(size: 22))
                             .autocapitalization(.none)
                             .disableAutocorrection(true)
@@ -52,6 +52,7 @@ struct SignInView: View {
 
                         // Password field: secured entry bound to VM.
                         SecureField("Password *", text: $vm.password)
+                            .aid("signin.password")
                             .font(AppFont.agdasima(size: 22))
                             .padding()
                             .background(Color.white)
@@ -84,6 +85,7 @@ struct SignInView: View {
                     // Inline error from the VM (e.g., invalid creds / network).
                     if !vm.errorMessage.isEmpty {
                         Text(vm.errorMessage)
+                            .aid("auth.errorLabel")
                             .foregroundColor(.red)
                             .font(.system(size: 15, weight: .semibold))
                             .padding([.horizontal, .top], 24)
@@ -102,6 +104,7 @@ struct SignInView: View {
                                     .foregroundColor(.black)
                                     .underline()
                             }
+                            .aid("signin.forgot")
                         }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 2) {
@@ -114,6 +117,7 @@ struct SignInView: View {
                                     .foregroundColor(.black)
                                     .underline()
                             }
+                            .aid("signin.signup")
                         }
                     }
                     .padding(.horizontal, 24)
@@ -123,16 +127,16 @@ struct SignInView: View {
 
                     ContinueButton(
                         title: vm.isLoading ? "Logging in..." : "Continue",
-                        enabled: vm.canContinue && !vm.isLoading, // disables when inputs invalid or mid-request
-                        action: { vm.signIn() }                  // VM performs auth and flips `goToHome` on success
+                        enabled: vm.canContinue && !vm.isLoading,
+                        action: { vm.signIn() }
                     )
+                    .aid("signin.continue")
                     .padding(.bottom, 100)
 
                     Spacer().frame(height: 10)
                 }
 
                 // Navigation is fully driven by VM booleans.
-                // This keeps push logic out of the auth calls and makes flows testable.
                 .navigationDestination(isPresented: $vm.goToForgotPassword) {
                     ForgotPasswordView()
                         .navigationBarBackButtonHidden(true)

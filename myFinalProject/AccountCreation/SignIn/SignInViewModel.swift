@@ -21,26 +21,20 @@ class SignInViewModel: ObservableObject {
     /// Raw form inputs bound from the View's text fields.
     @Published var email = ""
     @Published var password = ""
-
     /// One-line message shown under the form when something goes wrong.
     @Published var errorMessage = ""
-
     /// Toggles loading spinners / disables buttons during the network request.
     @Published var isLoading = false
-
+    
     // MARK: - Navigation flags (the View binds to these)
-
     /// Push "Forgot password" when true.
     @Published var goToForgotPassword = false
-
     /// Push "Sign up" when true.
     @Published var goToSignUp = false
-
     /// Push "Home" on successful sign-in.
     @Published var goToHome = false
 
     // MARK: - Derived state
-
     /// Enables the primary CTA only when both fields are non-empty.
     /// (We still validate format/length in `signIn()` for robustness.)
     var canContinue: Bool {
@@ -48,7 +42,6 @@ class SignInViewModel: ObservableObject {
     }
 
     // MARK: - Actions
-
     /// Attempts Firebase email+password sign-in.
     /// Flow:
     /// 1) Clear any stale error.

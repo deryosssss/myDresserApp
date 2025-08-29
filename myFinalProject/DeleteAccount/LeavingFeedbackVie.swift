@@ -9,20 +9,18 @@ import SwiftUI
 
 /// Step 2 in the account deletion flow.
 /// Goal: collect lightweight exit feedback (multi-select reasons + optional free text)
+/// Currently not much is done with this information however this data later can be used to see trends 
 
 struct LeavingFeedbackView: View {
 
     // Boolean array mirrors `reasons` indices → simple, lightweight multi-select model.
     @State private var selectedReasons: [Bool] = [false, false, false, false]
-
     // Free-text feedback. Bound to TextEditor below.
     @State private var description = ""
-
     // Declarative navigation flag (pushes DeleteAccountConfirmView when true).
     @State private var goToDeleteConfirm = false
-
     // Display strings (UI copy). Keeping them here keeps the view self-contained.
-    // TODO: extract to localized strings if you add i18n.
+    
     let reasons = [
         "I am no longer using my account",
         "I don't understand how to use",

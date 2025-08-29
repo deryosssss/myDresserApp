@@ -4,12 +4,13 @@
 //
 //  Created by Derya Baglan on 28/07/2025.
 //
-//
-
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseStorage
+
+// screen shown before account deletion just to make sure the account is deleted with confirmation.
+// If confirmation is given the account is deleted immediately afterwards 
 
 struct DeleteAccountConfirmView: View {
     @State private var confirmChecked = false
@@ -57,7 +58,10 @@ struct DeleteAccountConfirmView: View {
                                 .font(AppFont.agdasima(size: 20))
                                 .foregroundColor(.black)
                         }
+                        .aid("settings.cancelDelete")
+
                         Spacer()
+
                         Button(action: { startDeletion() }) {
                             HStack(spacing: 8) {
                                 if isWorking { ProgressView().scaleEffect(0.9) }
@@ -66,6 +70,7 @@ struct DeleteAccountConfirmView: View {
                             }
                             .foregroundColor(.red)
                         }
+                        .aid("settings.confirmDelete")
                         .disabled(!confirmChecked || isWorking)
                     }
                     .padding(.horizontal, 28)
@@ -96,13 +101,8 @@ struct DeleteAccountConfirmView: View {
 
         Task {
             do {
-                // 1) Delete Firestore data
                 try await deleteFirestoreData(uid: uid)
-
-                // 2) Delete Storage files
                 try await deleteStorageData(uid: uid)
-
-                // 3) Delete Auth user (may require recent login)
                 try await user.delete()
 
                 await MainActor.run {
@@ -110,7 +110,6 @@ struct DeleteAccountConfirmView: View {
                     showDeletedScreen = true
                 }
             } catch {
-                // Handle requiresRecentLogin specially
                 if let err = error as NSError?,
                    err.domain == AuthErrorDomain,
                    err.code == AuthErrorCode.requiresRecentLogin.rawValue {
@@ -133,7 +132,6 @@ struct DeleteAccountConfirmView: View {
         let db = Firestore.firestore()
         let userDoc = db.collection("users").document(uid)
 
-        // Delete subcollection: users/{uid}/items
         let itemsSnap = try await userDoc.collection("items").getDocuments()
         if !itemsSnap.documents.isEmpty {
             let batch = db.batch()
@@ -141,7 +139,6 @@ struct DeleteAccountConfirmView: View {
             try await batch.commit()
         }
 
-        // Optional legacy collection cleanup: wardrobeItems where userId == uid
         let legacySnap = try await db.collection("wardrobeItems")
             .whereField("userId", isEqualTo: uid)
             .getDocuments()
@@ -151,7 +148,6 @@ struct DeleteAccountConfirmView: View {
             try await batch.commit()
         }
 
-        // Delete the user document last
         try await userDoc.delete()
     }
 
@@ -164,19 +160,11 @@ struct DeleteAccountConfirmView: View {
 
     private func deleteAllFiles(in folder: StorageReference) async throws {
         let list = try await folder.listAll()
-        // Delete files in this folder
         try await withThrowingTaskGroup(of: Void.self) { group in
-            for item in list.items {
-                group.addTask { try await item.delete() }
-            }
+            for item in list.items { group.addTask { try await item.delete() } }
             for try await _ in group {}
         }
-        // Recurse into subfolders
-        for prefix in list.prefixes {
-            try await deleteAllFiles(in: prefix)
-        }
-        // Optionally delete the (now empty) folder reference – Firebase Storage
-        // doesn't have a "delete folder" API; folders disappear when empty.
+        for prefix in list.prefixes { try await deleteAllFiles(in: prefix) }
     }
 }
 

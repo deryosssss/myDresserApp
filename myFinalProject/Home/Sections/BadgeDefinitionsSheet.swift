@@ -9,8 +9,8 @@ import SwiftUI
 
 /// Bottom sheet that explains how each badge is earned.
 /// Inputs are the user’s current metrics so we can show achieved state + progress.
+///
 struct BadgeDefinitionsSheet: View {
-    // Inputs passed from parent screen (HomeView)
     let outfitsThisMonth: Int
     let co2ThisMonth: Double
     let itemsCount: Int
@@ -21,7 +21,7 @@ struct BadgeDefinitionsSheet: View {
             List {
                 Section("Definitions") {
                     // Each BadgeRow encapsulates one badge’s visuals + logic.
-                    // `achieved` is computed here so the row stays dumb/presentational.
+                    // `achieved` is computed here
                     BadgeRow(symbol: "tshirt",
                              title: "Starter",
                              desc: "Add your first 10 items to the wardrobe.",
@@ -32,21 +32,18 @@ struct BadgeDefinitionsSheet: View {
                              desc: "Reach 25 items in your wardrobe.",
                              achieved: itemsCount >= 25)
 
-                    // Show numeric progress to guide the user.
                     BadgeRow(symbol: "sparkles",
                              title: "Outfit Pro",
-                             desc: "Log 12 outfits this month.",
-                             achieved: outfitsThisMonth >= 12,
-                             progress: "\(outfitsThisMonth)/12")
+                             desc: "Log 30 outfits this month.",
+                             achieved: outfitsThisMonth >= 30,
+                             progress: "\(outfitsThisMonth)/30")
 
-                    // Format CO₂ with 1 decimal; threshold = 10 kg.
                     BadgeRow(symbol: "leaf.fill",
                              title: "Eco Hero",
                              desc: "Save 10 kg CO₂ this month (by re-wearing).",
                              achieved: co2ThisMonth >= 10,
                              progress: String(format: "%.1f/10 kg", co2ThisMonth))
 
-                    // Cap the displayed progress at the target so it doesn’t read 6/5, etc.
                     BadgeRow(symbol: "flame.fill",
                              title: "Streak 5",
                              desc: "Hit a 5-day wear streak.",
@@ -94,8 +91,6 @@ struct BadgeRow: View {
                 Text(desc)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-
-                // Progress is optional—only shown for badges with partial progress.
                 if let p = progress {
                     Text(p)
                         .font(.caption)

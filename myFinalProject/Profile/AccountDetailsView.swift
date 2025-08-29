@@ -7,6 +7,8 @@
 
 import SwiftUI
 
+// It shows the profile avatar (with an option to pick a new image), form fields for personal info (name, username, location, gender presentation), and a Save button that updates changes while showing alerts for errors or success.
+
 struct AccountDetailsView: View {
   @StateObject private var vm = AccountDetailsViewModel()
   @Environment(\.dismiss) var dismiss

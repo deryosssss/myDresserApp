@@ -100,7 +100,7 @@ public enum LayerPreset: String, CaseIterable, Identifiable, Codable, Equatable 
     public var shortTitle: String {
         switch self {
         case .two_DressShoes: return "2: Dress+Shoes"
-        case .three_DressShoesBag: return "3: Dress+Shoes+Bag"  // NEW
+        case .three_DressShoesBag: return "3: Dress+Shoes+Bag" 
         case .three_TopBottomShoes: return "3: Top+Bottom+Shoes"
         case .four_TopBottomShoesAccessory: return "4: Top+Bottom+Shoes+Acc"
         case .four_TopBottomOuterwearShoes: return "4: +Outerwear"
@@ -113,7 +113,7 @@ public enum LayerPreset: String, CaseIterable, Identifiable, Codable, Equatable 
     public var icon: String {
         switch self {
         case .two_DressShoes: return "square.grid.2x2"
-        case .three_DressShoesBag: return "rectangle.grid.3x2"   // NEW
+        case .three_DressShoesBag: return "rectangle.grid.3x2"
         case .three_TopBottomShoes: return "rectangle.grid.3x2"
         case .four_TopBottomShoesAccessory: return "square.grid.2x2"
         case .four_TopBottomOuterwearShoes: return "rectangle.grid.1x2"

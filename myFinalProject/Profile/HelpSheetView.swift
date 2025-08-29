@@ -8,6 +8,12 @@
 
 import SwiftUI
 
+// HelpSheetView is a SwiftUI help and support sheet. It gives users:
+// A welcome and quick tips list (searchable, with an option to show tips on launch).
+// Quick actions that deep-link into parts of the app (add item, wardrobe, filters, weather, AI creator).
+// Guides and FAQs explaining how to add items, create outfits, filter/sort, and troubleshoot.
+// Contact options (email or copy support address) and app info (version).
+
 struct HelpSheetView: View {
     // Personalization
     var username: String = ""

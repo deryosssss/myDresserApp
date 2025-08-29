@@ -9,7 +9,7 @@ import SwiftUI
 
 /// Screen that confirms the user's intent to delete their account.
 /// Pattern: **MVVM (View-only)** — this view is purely UI/state orchestration;
-/// actual deletion happens later in the flow (LeavingFeedbackView → service layer).
+/// 
 struct DeleteAccountView: View {
 
     // Local UI state that *drives navigation*. When true, pushes the next screen.

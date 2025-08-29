@@ -8,7 +8,7 @@
 //  Purpose:
 //  Turn a short, natural-language prompt (e.g. “smart casual, all white, boots”)
 //  into concrete outfit suggestions built from the user’s own wardrobe.
-//  This is local (no external AI): parse keywords → derive prefs →
+//  This is local: parse keywords → derive prefs →
 //  fetch items by layer → soft-filter → assemble 2–5 item looks → save to Firestore.
 //
 
@@ -52,11 +52,11 @@ struct PSOutfitCandidate: Identifiable, Equatable {
 /// These are *soft* constraints: we try to honor them without over-filtering to zero.
 fileprivate struct PromptPrefs {
     // Colors
-    var colors: [String] = []            // “any-of” color tokens found in the prompt
-    var onlyColor: String? = nil         // set on “all <color> / monochrome <color>”
+    var colors: [String] = []
+    var onlyColor: String? = nil
 
     // Dress code
-    var dressCode: String? = nil         // "casual" | "smart casual" | "smart"
+    var dressCode: String? = nil
 
     // Category / item-type nudges
     var wantDress = false
@@ -196,8 +196,11 @@ final class PromptSuggestionViewModel: ObservableObject {
 
     /// Builds one candidate using the given prefs, or returns nil if impossible.
     /// Strategy:
-    /// 1) fetch buckets concurrently, 2) soft-filter by prefs, 3) shoes first,
-    /// 4) pick base (dress vs top+bottom), 5) optionally add outer/bag/accessory.
+    /// 1) fetch buckets concurrently,
+    /// 2) soft-filter by prefs,
+    /// 3) shoes first,
+    /// 4) pick base (dress vs top+bottom),
+    /// 5) optionally add outer/bag/accessory.
     private func buildCandidate(prefs: PromptPrefs) async -> PSOutfitCandidate? {
         // 1) Fetch buckets concurrently (async let) to minimize latency.
         async let dresses = store.fetchItems(userId: userId, for: .dress,     limit: 300)

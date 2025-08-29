@@ -4,7 +4,7 @@
 //
 //  Created by Derya Baglan on 26/08/2025.
 //
-
+// XCUITest helper for the outfits gallery. It automates navigation to the “My Outfits” grid, can insert a fixture outfit for testing, opens the first gallery card, and verifies that an outfit detail screen is shown. It also supports deleting outfits and checking that the gallery order shows the newest items first.
 
 import XCTest
 

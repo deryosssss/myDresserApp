@@ -37,7 +37,7 @@ struct HomeDiversitySection: View {
                         .animation(.easeInOut(duration: 0.3), value: score) // smooth updates on window change
                 }
 
-                Spacer() // pushes content to the left within the card
+                Spacer()
             }
         }
         // Lightweight explainer shown from the info button; uses shared DefinitionPopover.
@@ -45,7 +45,7 @@ struct HomeDiversitySection: View {
             DefinitionPopover(
                 title: "Style diversity",
                 definition: """
-                Measures the variety of **categories you actually wore** in the selected window.
+                Measures the variety of categories you actually wore in the selected window.
 
                 We compute a diversity index across items in your outfits (e.g. Tops, Bottoms, Outerwear, Shoes, Accessories). Higher = more variety.
                 """

@@ -5,13 +5,20 @@
 //  Created by Derya Baglan on 26/08/2025.
 //
 
+// AnalyticsTests is an XCUITest suite that verifies the analytics/stats features in the app. It covers:
+// Distribution chart rendering (BB-AN-FR19-01).
+// Most/least worn sections appearing (BB-AN-FR19-02).
+// Graceful zero-data handling for new users with no wardrobe items (BB-AN-FR19-03).
+// Legend drill-down opening the filtered item sheet (BB-AN-FR19-04).
+// Center label selection/reset behavior in donut charts (BB-AN-FR19-05).
+// It uses StatsRobot for concise interactions and FirebaseEmulator + Fixtures to spin up fresh test users when needed.
 
 import XCTest
 
 @MainActor
 final class AnalyticsTests: XCTestCase {
     var app: XCUIApplication!
-    let emu = FirebaseEmulator()        // re-use your emulator helper if needed
+    let emu = FirebaseEmulator()       
     let fx  = Fixtures.self
 
     override func setUp() {

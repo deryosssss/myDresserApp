@@ -7,6 +7,8 @@
 
 import Foundation
 
+// MockURLProtocol is a test double for networking. It overrides URLProtocol so tests can intercept any URLRequest and return custom responses without hitting the network.
+
 final class MockURLProtocol: URLProtocol {
     static var handler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
 

@@ -312,11 +312,3 @@ private let monthShortFormatter: DateFormatter = {
     return f
 }()
 
-// MARK: - Preview
-struct MagicView_Previews: PreviewProvider {
-    static var previews: some View {
-        NavigationStack { MagicView() }
-            .previewDisplayName("MagicView — Light")
-    }
-}
-

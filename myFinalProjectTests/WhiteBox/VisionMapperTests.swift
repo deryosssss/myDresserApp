@@ -8,6 +8,9 @@
 import XCTest
 @testable import myFinalProject
 
+// Item detection: known labels (e.g., “shirt”, “blue”) are recognized, while unknown ones fall into customTags.
+// Deep tagging: even if responses are partial or malformed (e.g., tags: null), mapping is safe and returns empty arrays rather than crashing.
+
 final class VisionMapperTests: XCTestCase {
 
     func testItemDetection_HappyPath() throws {

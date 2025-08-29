@@ -4,6 +4,7 @@
 //
 //  Created by Derya Baglan on 21/08/2025.
 //
+// Shows a filtered set of wardrobe items in an adaptive grid; each cell loads the item image and links to ItemDetailView
 
 import SwiftUI
 

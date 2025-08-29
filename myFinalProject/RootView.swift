@@ -4,40 +4,49 @@
 //
 //  Created by Derya Baglan on 11/08/2025
 //
-//  1) Chooses which top-level screen to show based on auth state (loading → spinner, signed-in → app, signed-out → welcome).
-//  2) If signed-in but email not verified, shows the verification flow and keeps status fresh via `reloadUser()`.
+//  Chooses which top-level screen to show based on auth state.
 //
 
 import SwiftUI
 import FirebaseAuth
 
 struct RootView: View {
-    @EnvironmentObject var auth: AuthViewModel  // shared auth state (user, loading, actions)
+    @EnvironmentObject var auth: AuthViewModel
+
+    // Use a flag or env var ONLY in DEBUG to avoid accidentally forcing SignInView.
+    private var isUITest: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.arguments.contains("-ui-testing")
+            || ProcessInfo.processInfo.environment["UI_TEST_MODE"] == "1"
+        #else
+        return false
+        #endif
+    }
+
+    var body: some View {
+        content
+            .environmentObject(auth)
+    }
 
     @ViewBuilder
-    var body: some View {
-        if auth.isLoading {
-            // Still resolving auth session → show a neutral loading screen
+    private var content: some View {
+        if isUITest {
+            // UI tests can set: app.launchArguments += ["-ui-testing"]
+            SignInView()
+        } else if auth.isLoading {
             ZStack {
                 Color.white.ignoresSafeArea()
                 ProgressView().tint(.black)
             }
         } else if let user = auth.user {
-            // Signed in
             if user.isEmailVerified {
-                // Email verified → go to main app tabs
-                MainTabView()
-                    .environmentObject(auth) // pass auth down the tree
+                MainTabView() // -> contains HomeView
             } else {
-                // Signed in but not verified → show verification flow
                 EmailVerificationFlowView(email: user.email ?? "")
-                    .environmentObject(auth)
-                    .task { await auth.reloadUser() }   // keep verification status up to date
+                    .task { await auth.reloadUser() }
             }
         } else {
-            // Not signed in → welcome/onboarding
             WelcomeView()
-                .environmentObject(auth)
         }
     }
 }

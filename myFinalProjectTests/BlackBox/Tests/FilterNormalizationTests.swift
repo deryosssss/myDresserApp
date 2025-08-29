@@ -7,6 +7,13 @@
 
 import XCTest
 
+// FilterNormalizationTests is a UI test suite that checks the app’s color and subtype filtering logic in outfit recommendations. It ensures that:
+// Color aliases work (e.g., “Charcoal” matches “grey”).
+// Prefixes/suffixes normalize correctly (e.g., “light brown” → brown, “bluish” → blue).
+// Color families expand properly (e.g., “camel” matches “beige”).
+// Subtype filters apply strictly (e.g., “black boots” only returns boots in the shoes slot).
+// It edits test item colors via DetailRobot, then uses RecoRobot and NavRobot to verify that prompts still produce correct outfits.
+
 @MainActor
 final class FilterNormalizationTests: XCTestCase {
     var app: XCUIApplication!

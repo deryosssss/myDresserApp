@@ -20,19 +20,17 @@ struct AccountDeletedView: View {
     @State private var showSignInUp = false
     
     var body: some View {
-        NavigationStack { // Modern navigation container that works with `navigationDestination`
+        NavigationStack {
             ZStack {
                 Color.brandYellow.ignoresSafeArea()
                 
                 VStack {
                     Spacer()
                     
-                    // Main message. Using SpicyRice for the brand voice, centered for readability.
                     Text("Your account has been\ndeleted. We’re sorry to\nsee you go.")
                         .font(AppFont.spicyRice(size: 28))
                         .foregroundColor(.black)
                         .multilineTextAlignment(.center)
-                        // (Optional) .accessibilityAddTraits(.isHeader) to announce as a heading
                     
                     Spacer()
                 }

@@ -6,6 +6,8 @@
 
 import SwiftUI
 
+// FavouritesView is a SwiftUI screen that shows the user’s favourite wardrobe items. It displays them in a two-column grid, lets users open item details, and provides a heart button to toggle favourites. If no items are marked, it shows a simple empty state message.
+
 struct FavouritesView: View {
     @StateObject private var vm = WardrobeViewModel()
 

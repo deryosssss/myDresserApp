@@ -10,29 +10,26 @@
 
 import UIKit
 import FirebaseCore
+import FirebaseAuth
 import GoogleSignIn
 import FBSDKCoreKit
 
 class AppDelegate: NSObject, UIApplicationDelegate {
-    // Called when app launches (initialize SDKs, do one-time setup)
     func application(_ application: UIApplication,
-                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
-        FirebaseApp.configure() // Firebase (Auth/Firestore/Storage) setup
-        logBuckets()           
-        ApplicationDelegate.shared.application(application, didFinishLaunchingWithOptions: launchOptions) // Facebook SDK init
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+        FirebaseApp.configure()
+        ApplicationDelegate.shared.application(application, didFinishLaunchingWithOptions: launchOptions)
+
+        TestHooks.handleLaunchArgs()
+
         return true
     }
-    
-    // Handle auth redirect URLs (Google / Facebook sign-in callbacks)
+
     func application(_ app: UIApplication,
                      open url: URL,
                      options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
-        if GIDSignIn.sharedInstance.handle(url) {            // Google Sign-In deep link
-            return true
-        }
-        if ApplicationDelegate.shared.application(app, open: url, options: options) { // Facebook deep link
-            return true
-        }
+        if GIDSignIn.sharedInstance.handle(url) { return true }
+        if ApplicationDelegate.shared.application(app, open: url, options: options) { return true }
         return false
     }
 }

@@ -9,6 +9,11 @@
 import Foundation
 import SwiftUI
 
+// It takes all the user’s wardrobe items and outfits, then works out:
+// - how many items are used or unused,
+// - the newest, most-worn, least-worn, and oldest items,
+// - and simple charts showing categories and colours.
+
 @MainActor
 final class StatsViewModel: ObservableObject {
 

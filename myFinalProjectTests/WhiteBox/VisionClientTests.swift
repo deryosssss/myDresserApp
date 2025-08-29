@@ -28,11 +28,10 @@ final class VisionClientTests: XCTestCase {
             }
         }
 
-        // REQUIRES: your client init accepts injected URLSession
-        let client = VisionClient(session: session, apiKey: "abc123")
+        let client = VisionClient(session: session, apiKey: "3f98dfe1785b34120accb637c0bb40e8401fe70550dc6857ed6d901e055e967a")
         let _ = try await client.detect(ImageStub.data)
 
-        XCTAssertEqual(seenHeaders["Authorization"], "Bearer abc123")
+        XCTAssertEqual(seenHeaders["Authorization"], "Bearer 3f98dfe1785b34120accb637c0bb40e8401fe70550dc6857ed6d901e055e967a")
         XCTAssertGreaterThanOrEqual(called, 2) // retried after 429
     }
 }

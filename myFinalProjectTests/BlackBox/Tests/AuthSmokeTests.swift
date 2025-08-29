@@ -4,6 +4,7 @@
 //
 //  Created by Derya Baglan on 24/08/2025.
 //
+// AuthSmokeTests is a basic smoke test for authentication. It launches the app in UI test mode and verifies that the sign-in screen appears by checking that the email and password fields exist. This ensures the login UI is reachable before deeper tests run.
 
 import XCTest
 

@@ -12,7 +12,7 @@ import SwiftUI
 /// - passes the shared AuthViewModel down via EnvironmentObject
 
 struct WelcomeView: View {
-    @EnvironmentObject var auth: AuthViewModel   // <— add this
+    @EnvironmentObject var auth: AuthViewModel
     @State private var showSignInUp = false
     @State private var mScale: CGFloat = 0.5
     @State private var mOpacity: Double = 0.0
@@ -50,6 +50,11 @@ struct WelcomeView: View {
                 }
             }
             .onAppear {
+                if ProcessInfo.processInfo.arguments.contains("UI_TEST_MODE=1") {
+                    // Jump straight to entry screen in UI tests.
+                    showSignInUp = true
+                    return
+                }
                 withAnimation(.easeOut(duration: 0.6)) { mScale = 1.15; mOpacity = 1.0 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
                     withAnimation(.interpolatingSpring(stiffness: 170, damping: 10)) {
@@ -63,7 +68,7 @@ struct WelcomeView: View {
             .navigationDestination(isPresented: $showSignInUp) {
                 SignInUpView()
                     .navigationBarBackButtonHidden(true)
-                    .environmentObject(auth)   // <— pass it down
+                    .environmentObject(auth)   
             }
         }
     }

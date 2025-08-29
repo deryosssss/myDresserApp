@@ -24,13 +24,13 @@ let onboardingPages: [OnboardingPageContent] = [
     .init(
         title: "Welcome to\nMyDresser",
         subtitle: "What can you do on My Dresser?",
-        imageName: nil,                // First page is text-only
+        imageName: nil,
         titleFontSize: 55
     ),
     .init(
         title: "Add a new clothing item using our AI recognition system",
         subtitle: "",
-        imageName: "onboardingAddClothes",  // Must match an asset in your catalog
+        imageName: "onboardingAddClothes", 
         titleFontSize: 24
     ),
     .init(

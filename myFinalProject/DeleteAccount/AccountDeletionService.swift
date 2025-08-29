@@ -18,7 +18,6 @@ enum AccountDeletionError: Error { case notSignedIn, reauthRequired }
 /// 3) delete the top-level user document,
 /// 4) finally delete the Firebase Auth user.
 ///
-/// Design notes (for viva):
 /// - We do Storage deletions with `try?` on purpose: failing to remove a blob should not block
 ///   metadata/doc cleanup; it’s better to avoid leaving live Firestore docs behind.
 /// - Order is “children → parent → Auth user” to avoid dangling subcollections/doc reads after parent gone.

@@ -20,7 +20,7 @@ struct HomeUsageSection: View {
     let unused90Count: Int
 
     var body: some View {
-        HomeSectionCard(title: "Your usage") {
+        HomeSectionCard(title: "Your Wardrobe Usage") {
             VStack(alignment: .leading, spacing: 10) {
                 Picker("", selection: $window) {
                     ForEach(HomeViewModel.Window.allCases) { Text($0.rawValue).tag($0) }

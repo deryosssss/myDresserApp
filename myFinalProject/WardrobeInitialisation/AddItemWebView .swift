@@ -1,6 +1,5 @@
-//
-//  AddItemWebView.swift
-//  myFinalProject
+// AddItemWebView.swift
+// myFinalProject
 //
 //  Created by Derya on 31/07/2025
 //
@@ -37,6 +36,7 @@ struct AddItemWebView: View {
                 url: URL(string: "https://images.google.com")!
             )
             .edgesIgnoringSafeArea(.all)
+            .aid("web.view")
 
             // 2) Snapshot button (captures current web view to an image)
             Button(action: webVM.captureSnapshot) {
@@ -45,6 +45,7 @@ struct AddItemWebView: View {
                     .frame(width: 60, height: 60)
                     .padding()
             }
+            .aid("web.capture")
         }
         // 3) Fullscreen cropper appears after snapshot
         .fullScreenCover(isPresented: $webVM.showingCrop) {
@@ -83,13 +84,14 @@ struct AddItemWebView: View {
         .overlay(
             VStack {
                 if taggingVM.isLoading {
-                    ProgressView("Saving…")
+                    ProgressView("Saving…").aid("tagging.loading")
                 }
                 if let error = taggingVM.errorMessage {
                     Text(error)
                         .foregroundColor(.red)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
+                        .aid("tagging.error")
                 }
             }
             .padding(),

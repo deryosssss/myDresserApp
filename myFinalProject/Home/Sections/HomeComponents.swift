@@ -7,8 +7,7 @@
 
 import SwiftUI
 
-// MARK: - Section Card (container with title, optional accessory, and slotted content)
-
+// Section Card (container with title, optional accessory, and slotted content)
 /// Reusable card used across Home.
 struct HomeSectionCard<Content: View, Accessory: View>: View {
     /// Leading title label.
@@ -29,7 +28,6 @@ struct HomeSectionCard<Content: View, Accessory: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Header row: title on the left, accessory on the right
             HStack {
                 Text(title)
                     .font(AppFont.agdasima(size: 22))
@@ -38,7 +36,6 @@ struct HomeSectionCard<Content: View, Accessory: View>: View {
                 accessory()
             }
 
-            // Content area placed inside a soft, rounded container
             VStack(alignment: .leading, spacing: 0) {
                 content
             }
@@ -53,7 +50,6 @@ struct HomeSectionCard<Content: View, Accessory: View>: View {
 }
 
 // MARK: - Empty Row (uniform empty-state line)
-
 /// Single-line, subdued empty state used inside lists/sections.
 struct HomeEmptyRow: View {
     let text: String
@@ -67,21 +63,20 @@ struct HomeEmptyRow: View {
 }
 
 // MARK: - Item Tile (image in a bordered, elevated tile)
-
 /// Small product/wardrobe thumbnail:
 struct ItemTile: View {
     let url: String
     var body: some View {
         ZStack {
-            Color.white // base so empty/loading states don't show system bg through
+            Color.white
             AsyncImage(url: URL(string: url)) { ph in
                 switch ph {
                 case .success(let img):
-                    img.resizable().scaledToFit() // preserve aspect ratio without cropping
+                    img.resizable().scaledToFit()
                 case .empty:
-                    Color.white // keep surface consistent while loading
+                    Color.white
                 default:
-                    Color.white // failed → same neutral surface
+                    Color.white
                 }
             }
         }
@@ -89,15 +84,14 @@ struct ItemTile: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color(.separator), lineWidth: 0.5) // crisp edge, light contrast
+                .stroke(Color(.separator), lineWidth: 0.5)
         )
-        .contentShape(RoundedRectangle(cornerRadius: 10)) // taps respect rounded edge
-        .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: 1) // subtle lift
+        .contentShape(RoundedRectangle(cornerRadius: 10))
+        .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: 1)
     }
 }
 
 // MARK: - Diversity Badge (colored chip reflecting level)
-
 /// Compact “badge chip” showing diversity level:
 struct DiversityBadge: View {
     let level: String
@@ -116,7 +110,6 @@ struct DiversityBadge: View {
 }
 
 // MARK: - Badge Icon Tile (used in the Badges row)
-
 /// Icon + title tile representing an achievement badge:
 struct BadgeView: View {
     let title: String

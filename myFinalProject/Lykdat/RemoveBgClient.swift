@@ -5,32 +5,43 @@
 //  Created by Derya Baglan on 01/08/2025.
 //
 
-
 import Foundation
 import UIKit
 
 /// Thin wrapper around the remove.bg REST API.
 /// Sends an image, receives a background-removed PNG (cutout).
 ///
-///Loads RemoveBgAPIKey from Info.plist, builds a multipart/form-data POST to https://api.remove.bg/v1.0/removebg with the image as image_file, and returns the background-removed PNG via a completion handler.
+/// Loads RemoveBgAPIKey from Info.plist, builds a multipart/form-data POST to https://api.remove.bg/v1.0/removebg
+/// with the image as image_file, and returns the background-removed PNG via a completion handler.
 ///
 class RemoveBgClient: ObservableObject {
-    private let apiKey: String = {
-        guard let key = Bundle.main
-              .infoDictionary?["RemoveBgAPIKey"] as? String,
-              !key.isEmpty
-        else {
+    private let boundary = UUID().uuidString
+    private let isUITest = ProcessInfo.processInfo.arguments.contains("UI_TEST_MODE=1")
+
+    private lazy var apiKey: String = {
+        if isUITest {
+            // Use a placeholder or empty — requests are short-circuited in tests.
+            return (Bundle.main.infoDictionary?["RemoveBgAPIKey"] as? String) ?? ""
+        }
+        guard let key = Bundle.main.infoDictionary?["RemoveBgAPIKey"] as? String, !key.isEmpty else {
             fatalError("🔑 RemoveBgAPIKey missing in Info.plist")
         }
         return key
     }()
-    private let boundary = UUID().uuidString
 
-    /// Sends the image to remove.bg and returns the cutout (PNG)
+    /// Sends the image to remove.bg and returns the cutout (PNG).
     func removeBackground(
         from image: UIImage,
         completion: @escaping (Result<UIImage, Error>) -> Void
     ) {
+        // Test mode: skip network and just return the original image quickly.
+        if isUITest {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                completion(.success(image))
+            }
+            return
+        }
+
         guard let imageData = image.pngData() else {
             completion(.failure(NSError(
                 domain: "RemoveBg", code: 0,

@@ -5,8 +5,14 @@
 //  Created by Derya Baglan on 24/08/2025.
 //
 
-// ItemFlowTests.swift (UITests target)
 import XCTest
+
+// ItemFlowTests is a UI test suite that verifies the item-adding and tagging flows. It covers:
+// Adding items via gallery (FR6-03) and in-app web (FR7-01) fixtures.
+// Auto-tagging from the fake AI client (detecting type, color, pattern, category) (FR8-01/02/03).
+// Manual overrides (e.g., changing category to “Dress”) and ensuring they persist (FR8-04).
+// Custom tags: adding predefined tags (FR9-01), verifying visibility/searchability (FR9-02), and preventing duplicates (FR9-03).
+// It uses ItemsRobot for consistent navigation and assertions, keeping the tests concise.
 
 final class ItemFlowTests: XCTestCase {
     var app: XCUIApplication!

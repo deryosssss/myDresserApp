@@ -7,6 +7,8 @@
 
 import SwiftUI
 
+// Main bottom tab navigation for the app
+
 struct MainTabView: View {
     init() {
         let appearance = UITabBarAppearance()
@@ -37,10 +39,5 @@ struct MainTabView: View {
                 .tabItem { Image(systemName: "person.fill"); Text("Profile") }
         }
         .tint(.pink)
-    }
-}
-struct MainTabView_Previews: PreviewProvider {
-    static var previews: some View {
-        MainTabView()
     }
 }

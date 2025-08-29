@@ -7,6 +7,8 @@
 
 import SwiftUI
 
+// ItemThumb is a SwiftUI view that displays a single wardrobe item thumbnail:
+
 struct ItemThumb: View {
     let url: String
     var size: CGSize = .init(width: 86, height: 96)

@@ -4,7 +4,12 @@
 //
 //  Created by Derya Baglan on 26/08/2025.
 //
-
+// XCUITest helper that automates interactions with the wardrobe item detail screen.
+// It can:
+// Open the first item and switch between About / Outfits / Stats tabs.
+// Perform edits (size, brand, replace photo, create AI outfit).
+// Update usage info (last worn date) and assert stats like underused badge.
+// Verify outfit counts and navigation to outfit details.
 
 import XCTest
 

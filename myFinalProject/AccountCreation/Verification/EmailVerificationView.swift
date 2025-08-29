@@ -7,9 +7,7 @@
 
 import SwiftUI
 
-/// Screen that instructs the user to check their inbox and
-/// lets them resend the verification email or confirm they've already verified.
-
+/// Screen that instructs the user to check their inbox and lets them resend or confirm.
 struct EmailVerificationView: View {
     @ObservedObject var vm: EmailVerificationViewModel
 
@@ -41,9 +39,9 @@ struct EmailVerificationView: View {
                 }
                 .padding(.horizontal, 22)
 
-                // Message/Error
                 if !vm.message.isEmpty {
                     Text(vm.message)
+                        .aid("verify.message")
                         .font(.system(size: 14))
                         .foregroundColor(.red)
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -70,6 +68,7 @@ struct EmailVerificationView: View {
                             .cornerRadius(4)
                     }
                 }
+                .aid("verify.resend")
                 .padding(.horizontal, 32)
                 .disabled(vm.isLoading)
 
@@ -82,6 +81,7 @@ struct EmailVerificationView: View {
                         .background(Color.white)
                         .cornerRadius(4)
                 }
+                .aid("verify.confirmed")
                 .padding(.horizontal, 32)
                 .padding(.top, 24)
 

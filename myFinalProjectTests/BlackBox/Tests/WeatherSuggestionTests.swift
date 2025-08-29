@@ -8,6 +8,12 @@
 
 import XCTest
 
+// WeatherSuggestionTests is a UI test suite for the weather-based outfit suggestion feature. It validates:
+// Happy path: weather cards load and the base dress code locks after the first choice (FR15-01).
+// API fallback: if the remote weather API is offline, the app falls back to a local generator and still shows cards (FR15-02).
+// Cold weather bias: when the temperature is low (e.g., 5 °C), outfits prefer to include outerwear (FR15-03).
+// It relies on WeatherRobot and launch flags to simulate different weather conditions
+
 @MainActor
 final class WeatherSuggestionTests: XCTestCase {
     var app: XCUIApplication!

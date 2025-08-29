@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-
+// displays a horizontal scrolling row of wardrobe items. Each item is shown as a thumbnail (ItemThumb) and acts as a NavigationLink to its detailed view, while handling empty states by showing a simple "No data" message
 struct ItemStrip: View {
     let items: [WardrobeItem]
     let vm: WardrobeViewModel

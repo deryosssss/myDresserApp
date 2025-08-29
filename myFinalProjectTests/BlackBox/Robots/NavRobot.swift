@@ -5,6 +5,7 @@
 //  Created by Derya Baglan on 26/08/2025.
 //
 
+// XCUITest navigation helper that makes it easy to switch between the app’s main tabs. It provides methods to go to Wardrobe, Dress Me (magic view), Manual, and Weather screens, handling different accessibility identifiers, and asserts that each target screen is visible. This keeps navigation steps clean and reliable in UI tests
 import XCTest
 
 struct NavRobot {

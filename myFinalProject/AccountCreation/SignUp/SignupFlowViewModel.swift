@@ -18,6 +18,7 @@ import FirebaseFirestore
 /// - Create the Firebase Auth user.
 /// - Seed a minimal user doc in Firestore (profile is completed later).
 /// - Send verification email and flip a navigation flag the View observes.
+///
 final class SignupFlowViewModel: ObservableObject {
 
     // MARK: - Form inputs (bound to TextFields / toggles)
@@ -30,7 +31,7 @@ final class SignupFlowViewModel: ObservableObject {
     @Published var isLoading: Bool = false        // disables buttons & shows progress
     @Published var errorMessage: String = ""      // single-line error under form
     @Published var showTAndCs: Bool = false       // shows Terms sheet
-    @Published var showSocialAlert: Bool = false  // example: for non-implemented providers
+    @Published var showSocialAlert: Bool = false  
     @Published var alertMessage: String = ""      // text inside the generic alert
 
     // MARK: - Navigation flags (the View binds to these)

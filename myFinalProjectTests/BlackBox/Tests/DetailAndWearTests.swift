@@ -7,6 +7,15 @@
 
 import XCTest
 
+// DetailAndWearTests is a UI test suite that validates the item detail screen and wear-tracking features. It covers:
+// Item detail basics: tabs (About, Outfits, Stats) and core actions are visible.
+// Editing: changing size/brand persists after re-opening.
+// Replacing photo: succeeds via test fixture.
+// AI outfit from item: marked as an expected failure (known issue).
+// Wear tracking: editing last worn persists, underused badge appears for old items, outfits count shows and navigates correctly.
+// Wear seeding: saving an outfit initializes wear log fields.
+// It uses DetailRobot, NavRobot, and RecoRobot helpers to keep tests clean and readable.
+
 @MainActor
 final class DetailAndWearTests: XCTestCase {
     var app: XCUIApplication!

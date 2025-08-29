@@ -6,6 +6,12 @@
 //
 
 import XCTest
+
+// monthsBack produces the correct number of month-start dates in order.
+// cumulative builds running totals correctly.
+// snapToMonthStart rounds any date to the first day of the month at midnight.
+// makeCSV generates valid CSV output with the right headers and formatted values for both CO₂ saved and outfits series.
+                                                                                    
 @testable import myFinalProject
 
 final class CO2AnalyticsTests: XCTestCase {

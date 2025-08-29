@@ -5,6 +5,12 @@
 //  Created by Derya Baglan on 26/08/2025.
 //
 
+// XCUITest helper for the outfit recommendation (“Dress Me”) feature. It automates:
+// Entering a prompt and creating recommendations (with optional rain context).
+// Verifying cards appear, contain a full outfit (dress+shoes or top+bottom+shoes), and respect context rules (e.g., no sandals in rain).
+// Checking notes like soft-match hints.
+// Performing actions like skipping a card (replaced with a new one) or saving a card as an outfit.
+
 import XCTest
 
 struct RecoRobot {
