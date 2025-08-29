@@ -35,7 +35,7 @@ struct HomeBadgesSection: View {
                           achieved: totalItems >= 25)
 
                 BadgeView(title: "Outfit Pro", system: "sparkles",
-                          achieved: outfitsThisMonth >= 12)
+                          achieved: outfitsThisMonth >= 30)
 
                 BadgeView(title: "Eco Hero",   system: "leaf.fill",
                           achieved: co2ThisMonth >= 10)
